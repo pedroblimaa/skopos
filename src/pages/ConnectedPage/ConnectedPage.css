@@ -1,0 +1,12 @@
+.connected-page .card {
+  text-align: center;
+  display: grid;
+  gap: 16px;
+}
+.connected-page .card p {
+  margin: 0;
+}
+.connected-icon {
+  color: #86cfff;
+  margin: auto;
+}

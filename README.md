@@ -19,6 +19,17 @@ pnpm tauri dev
 
 `pnpm dev` starts the Vite frontend. `pnpm tauri dev` starts the native desktop application.
 
+## Telegram login configuration
+
+Create a Telegram application at [my.telegram.org](https://my.telegram.org/), copy `.env.base` to `.env`, and fill in its API credentials:
+
+```text
+TG_ID=your-api-id
+TG_HASH=your-api-hash
+```
+
+Run `pnpm tauri dev` or `pnpm tauri build --no-bundle` after saving `.env`. The Rust build reads the repository's `.env`; shell variables with the same names take precedence. The credentials are compiled into the native app, so rebuild after changing them. Builds without credentials still compile, but login displays a configuration error. `.env` is ignored by Git. Telegram sessions are stored in Skopos's local application data directory.
+
 ## Quality checks
 
 ```text

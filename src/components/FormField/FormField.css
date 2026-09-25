@@ -1,0 +1,22 @@
+.field {
+  display: grid;
+  gap: 8px;
+}
+.field label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.07em;
+  color: #bec8d1;
+}
+.field input {
+  width: 100%;
+  border: 1px solid #3e4850;
+  border-radius: 8px;
+  background: #060e20;
+  color: #dae2fd;
+  padding: 13px 14px;
+}
+.field input::placeholder {
+  color: #88929b;
+}

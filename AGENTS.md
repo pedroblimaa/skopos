@@ -54,6 +54,8 @@ Initial matching may be simple text/product detection plus price extraction and 
 
 ## Repository conventions
 
+- Follow [Rust code guidelines](docs/rust-code-guidelines.md) when writing or reviewing `src-tauri` code.
+- Keep Rust module entry files focused on declarations and selective re-exports; put Tauri commands and workflows in responsibility-named files, following the [Rust module guide](https://doc.rust-lang.org/book/ch07-05-separating-modules-into-different-files.html) and [Tauri plugin layout](https://v2.tauri.app/develop/plugins/).
 - Keep the frontend and Rust host separately testable.
 - Prefer typed interfaces and small pure functions for parsing and matching.
 - Keep secrets, Telegram sessions, databases, build output, and local environment files out of Git.

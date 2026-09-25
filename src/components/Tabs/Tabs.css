@@ -1,0 +1,33 @@
+.tabs {
+  display: flex;
+  gap: 4px;
+  background: #060e20;
+  padding: 4px;
+  border-radius: 999px;
+  margin-bottom: 26px;
+}
+.tabs__tab {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 999px;
+  padding: 11px 10px;
+  color: #bec8d1;
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.tabs__tab--active {
+  background: #24a1de;
+  color: #00344c;
+}
+@media (max-width: 520px) {
+  .tabs__tab {
+    font-size: 12px;
+    gap: 5px;
+  }
+}
