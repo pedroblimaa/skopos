@@ -17,6 +17,8 @@ it("shows the server expiry and replaces the QR when Telegram refreshes it", () 
     <QrDisplay token={{ url: "tg://login?token=second", expiresAt: Date.now() / 1000 + 90 }} />,
   );
   expect(screen.getByText("Expires in 01:30")).toBeInTheDocument();
-  act(() => vi.advanceTimersByTime(91_000));
+  act(() => {
+    vi.advanceTimersByTime(91_000);
+  });
   expect(screen.getByText("Refreshing QR code…")).toBeInTheDocument();
 });

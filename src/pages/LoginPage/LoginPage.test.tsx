@@ -11,19 +11,19 @@ const auth = vi.hoisted(() => ({
   submitCode: vi.fn(),
   submitPassword: vi.fn(),
   signOut: vi.fn(),
-  passwordRequired: vi.fn(),
+  passwordRequired: vi.fn<(hint: string | null) => void>(),
 }));
 
 vi.mock("../../telegram", () => ({
   telegram: {
     ...auth,
-    onQr: async () => () => {},
-    onAuthenticated: async () => () => {},
-    onPasswordRequired: async (callback: (hint: string | null) => void) => {
+    onQr: () => Promise.resolve(() => {}),
+    onAuthenticated: () => Promise.resolve(() => {}),
+    onPasswordRequired: (callback: (hint: string | null) => void) => {
       auth.passwordRequired.mockImplementation(callback);
-      return () => {};
+      return Promise.resolve(() => {});
     },
-    onError: async () => () => {},
+    onError: () => Promise.resolve(() => {}),
   },
   errorMessage: (error: unknown) => String(error),
 }));
@@ -44,19 +44,68 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("LoginPage", () => {
+  it("shows a QR error and retries", async () => {
+    auth.startQr.mockRejectedValueOnce(new Error("Offline"));
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Offline"));
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    await waitFor(() => {
+      expect(auth.startQr).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("shows a session lookup failure and still offers login", async () => {
+    auth.status.mockRejectedValueOnce(new Error("Session unavailable"));
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Session unavailable"));
+    await waitFor(() => {
+      expect(auth.startQr).toHaveBeenCalled();
+    });
+  });
+
+  it("keeps the phone form after code request failure", async () => {
+    auth.requestCode.mockRejectedValueOnce(new Error("Rate limited"));
+    render(
+      <MemoryRouter>
+        <LoginPage />
+      </MemoryRouter>,
+    );
+    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.change(screen.getByLabelText("Account mobile number"), {
+      target: { value: "+55 11 99999 9999" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send login code" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Rate limited"));
+    expect(screen.getByLabelText("Account mobile number")).toBeInTheDocument();
+    expect(auth.requestCode).toHaveBeenCalledWith("+5511999999999");
+  });
   it("keeps the password challenge when QR login requires it", async () => {
     render(
       <MemoryRouter initialEntries={["/login"]}>
         <LoginPage />
       </MemoryRouter>,
     );
-    await waitFor(() => expect(auth.startQr).toHaveBeenCalledTimes(1));
+    await waitFor(() => {
+      expect(auth.startQr).toHaveBeenCalledTimes(1);
+    });
     fireEvent.click(screen.getByRole("tab", { name: "Quick QR Scan" }));
     expect(auth.startQr).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
     fireEvent.click(screen.getByRole("tab", { name: "Quick QR Scan" }));
-    await waitFor(() => expect(auth.startQr).toHaveBeenCalledTimes(2));
-    act(() => auth.passwordRequired("Password hint"));
+    await waitFor(() => {
+      expect(auth.startQr).toHaveBeenCalledTimes(2);
+    });
+    act(() => {
+      auth.passwordRequired("Password hint");
+    });
     await waitFor(() => expect(screen.getByLabelText("Password")).toBeInTheDocument());
     expect(screen.getByText("Hint: Password hint")).toBeInTheDocument();
     expect(auth.startQr).toHaveBeenCalledTimes(2);
@@ -71,15 +120,20 @@ describe("LoginPage", () => {
       </MemoryRouter>,
     );
     expect(screen.getByRole("heading", { name: "Authorize Telegram" })).toBeInTheDocument();
-    await waitFor(() => expect(auth.startQr).toHaveBeenCalled());
+    await waitFor(() => {
+      expect(auth.startQr).toHaveBeenCalled();
+    });
     fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
     expect(screen.getByLabelText("Account mobile number")).toBeInTheDocument();
   });
 
   it("requests a code and reaches the connected page", async () => {
-    auth.submitCode.mockImplementationOnce(async () => {
+    auth.submitCode.mockImplementationOnce(() => {
       auth.status.mockResolvedValue({ authorized: true, displayName: "Pedro" });
-      return { step: "authorized", status: { authorized: true, displayName: "Pedro" } };
+      return Promise.resolve({
+        step: "authorized",
+        status: { authorized: true, displayName: "Pedro" },
+      });
     });
     render(
       <MemoryRouter initialEntries={["/login"]}>
@@ -112,9 +166,12 @@ describe("LoginPage", () => {
 
   it("continues through the two-step password challenge", async () => {
     auth.submitCode.mockResolvedValueOnce({ step: "passwordRequired", hint: "My hint" });
-    auth.submitPassword.mockImplementationOnce(async () => {
+    auth.submitPassword.mockImplementationOnce(() => {
       auth.status.mockResolvedValue({ authorized: true, displayName: "Pedro" });
-      return { step: "authorized", status: { authorized: true, displayName: "Pedro" } };
+      return Promise.resolve({
+        step: "authorized",
+        status: { authorized: true, displayName: "Pedro" },
+      });
     });
     render(
       <MemoryRouter initialEntries={["/login"]}>
@@ -140,6 +197,8 @@ describe("LoginPage", () => {
     expect(screen.getByText("Hint: My hint")).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
     fireEvent.click(screen.getByRole("button", { name: "Continue" }));
-    await waitFor(() => expect(auth.submitPassword).toHaveBeenCalledWith("secret"));
+    await waitFor(() => {
+      expect(auth.submitPassword).toHaveBeenCalledWith("secret");
+    });
   });
 });

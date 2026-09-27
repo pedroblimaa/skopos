@@ -1,6 +1,33 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 
+function testApi() {
+  return (
+    window as Window & {
+      __TAURI__?: { core: { invoke: typeof invoke }; event: { listen: typeof listen } };
+    }
+  ).__TAURI__;
+}
+
+function command<T>(name: string, args?: Record<string, unknown>): Promise<T> {
+  if (import.meta.env.VITE_E2E) {
+    const api = testApi();
+    if (!api) return Promise.reject(new Error("Tauri test API is unavailable"));
+    return api.core.invoke<T>(name, args);
+  }
+  return invoke<T>(name, args);
+}
+
+// Keep event payload types aligned with Tauri's listen<T> API.
+// eslint-disable-next-line @typescript-eslint/no-unnecessary-type-parameters
+function onEvent<T>(name: string, callback: (payload: T) => void) {
+  const api = import.meta.env.VITE_E2E ? testApi() : null;
+  const subscribe = api?.event.listen ?? listen;
+  return subscribe<T>(name, (event) => {
+    callback(event.payload);
+  });
+}
+
 export interface SessionStatus {
   authorized: boolean;
   displayName: string | null;
@@ -15,22 +42,21 @@ export type LoginResult =
   { step: "authorized"; status: SessionStatus } | { step: "passwordRequired"; hint: string | null };
 
 export const telegram = {
-  status: () => invoke<SessionStatus>("session_status"),
-  startQr: () => invoke<void>("start_qr_login"),
-  stopQr: () => invoke<void>("stop_qr_login"),
+  status: () => command<SessionStatus>("session_status"),
+  startQr: () => command<unknown>("start_qr_login").then(() => {}),
+  stopQr: () => command<unknown>("stop_qr_login").then(() => {}),
   requestCode: (phone: string) =>
-    invoke<{ message: string; length: number | null }>("request_phone_code", { phone }),
-  submitCode: (code: string) => invoke<LoginResult>("submit_phone_code", { code }),
-  submitPassword: (password: string) => invoke<LoginResult>("submit_password", { password }),
-  signOut: () => invoke<void>("sign_out"),
-  onQr: (callback: (token: QrToken) => void) =>
-    listen<QrToken>("telegram:qr-token", (event) => callback(event.payload)),
+    command<{ message: string; length: number | null }>("request_phone_code", { phone }),
+  submitCode: (code: string) => command<LoginResult>("submit_phone_code", { code }),
+  submitPassword: (password: string) => command<LoginResult>("submit_password", { password }),
+  signOut: () => command<unknown>("sign_out").then(() => {}),
+  onQr: (callback: (token: QrToken) => void) => onEvent<QrToken>("telegram:qr-token", callback),
   onAuthenticated: (callback: (status: SessionStatus) => void) =>
-    listen<SessionStatus>("telegram:auth-changed", (event) => callback(event.payload)),
+    onEvent<SessionStatus>("telegram:auth-changed", callback),
   onPasswordRequired: (callback: (hint: string | null) => void) =>
-    listen<string | null>("telegram:password-required", (event) => callback(event.payload)),
+    onEvent<string | null>("telegram:password-required", callback),
   onError: (callback: (message: string) => void) =>
-    listen<string>("telegram:auth-error", (event) => callback(event.payload)),
+    onEvent<string>("telegram:auth-error", callback),
 };
 
 export function errorMessage(error: unknown): string {

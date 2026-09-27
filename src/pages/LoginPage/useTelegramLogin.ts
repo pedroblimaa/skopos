@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useState, type SyntheticEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { errorMessage, telegram, type LoginResult, type QrToken } from "../../telegram";
 
@@ -27,7 +27,7 @@ export function useTelegramLogin() {
       try {
         const status = await telegram.status();
         if (!active) return;
-        if (status.authorized) navigate("/connected", { replace: true });
+        if (status.authorized) void navigate("/connected", { replace: true });
         else setReady(true);
       } catch (reason) {
         if (active) {
@@ -58,7 +58,7 @@ export function useTelegramLogin() {
         );
         unlisten.push(
           await telegram.onAuthenticated((status) => {
-            if (active && status.authorized) navigate("/connected", { replace: true });
+            if (active && status.authorized) void navigate("/connected", { replace: true });
           }),
         );
         unlisten.push(
@@ -75,16 +75,23 @@ export function useTelegramLogin() {
           }),
         );
         if (active) setSubscribed(true);
-        else unlisten.forEach((stop) => stop());
+        else
+          unlisten.forEach((stop) => {
+            stop();
+          });
       } catch (reason) {
-        unlisten.forEach((stop) => stop());
+        unlisten.forEach((stop) => {
+          stop();
+        });
         if (active) setError(errorMessage(reason));
       }
     }
     void subscribe();
     return () => {
       active = false;
-      unlisten.forEach((stop) => stop());
+      unlisten.forEach((stop) => {
+        stop();
+      });
     };
   }, [ready, navigate]);
 
@@ -106,7 +113,7 @@ export function useTelegramLogin() {
   }, [subscribed, method, step]);
 
   function handleResult(result: LoginResult) {
-    if (result.step === "authorized") navigate("/connected", { replace: true });
+    if (result.step === "authorized") void navigate("/connected", { replace: true });
     else {
       setHint(result.hint);
       setStep("password");
@@ -139,7 +146,7 @@ export function useTelegramLogin() {
     }
   }
 
-  async function requestCode(event: FormEvent) {
+  async function requestCode(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");
@@ -156,7 +163,7 @@ export function useTelegramLogin() {
     }
   }
 
-  async function submitCode(event: FormEvent) {
+  async function submitCode(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");
@@ -169,7 +176,7 @@ export function useTelegramLogin() {
     }
   }
 
-  async function submitPassword(event: FormEvent) {
+  async function submitPassword(event: SyntheticEvent<HTMLFormElement>) {
     event.preventDefault();
     setBusy(true);
     setError("");

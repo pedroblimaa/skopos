@@ -18,9 +18,9 @@ export function VerificationCodeInput({
       pattern={length === null ? undefined : "[0-9]*"}
       maxLength={length ?? undefined}
       value={value}
-      onChange={(event) =>
-        onChange(length === null ? event.target.value : event.target.value.replace(/\D/g, ""))
-      }
+      onChange={(event) => {
+        onChange(length === null ? event.target.value : event.target.value.replace(/\D/g, ""));
+      }}
       placeholder="Enter the code"
       required
     />

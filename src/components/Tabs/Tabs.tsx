@@ -28,7 +28,9 @@ export function Tabs<T extends string>({
           aria-selected={active === id}
           disabled={disabled}
           className={`tabs__tab ${active === id ? "tabs__tab--active" : ""}`}
-          onClick={() => onChange(id)}
+          onClick={() => {
+            onChange(id);
+          }}
         >
           {icon}
           {label}

@@ -8,8 +8,12 @@ export function QrDisplay({ token }: { token: QrToken | null }) {
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
-    const interval = window.setInterval(() => setNow(Date.now()), 1000);
-    return () => window.clearInterval(interval);
+    const interval = window.setInterval(() => {
+      setNow(Date.now());
+    }, 1000);
+    return () => {
+      window.clearInterval(interval);
+    };
   }, []);
 
   const seconds = token ? Math.max(0, Math.ceil(token.expiresAt - now / 1000)) : 0;

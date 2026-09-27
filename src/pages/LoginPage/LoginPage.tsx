@@ -71,7 +71,12 @@ export function LoginPage() {
             </div>
           )}
           {method === "phone" && step === "phone" && (
-            <form className="login-form" onSubmit={requestCode}>
+            <form
+              className="login-form"
+              onSubmit={(event) => {
+                void requestCode(event);
+              }}
+            >
               <FormField
                 id="phone"
                 label="Account mobile number"
@@ -79,7 +84,9 @@ export function LoginPage() {
                 autoComplete="tel"
                 placeholder="+55 11 99999 9999"
                 value={phone}
-                onChange={(event) => setPhone(event.target.value)}
+                onChange={(event) => {
+                  setPhone(event.target.value);
+                }}
                 required
               />
               <Button disabled={busy} type="submit">
@@ -92,7 +99,12 @@ export function LoginPage() {
             </form>
           )}
           {method === "phone" && step === "code" && (
-            <form className="login-form" onSubmit={submitCode}>
+            <form
+              className="login-form"
+              onSubmit={(event) => {
+                void submitCode(event);
+              }}
+            >
               <p className="form-help">{delivery}</p>
               <VerificationCodeInput value={code} onChange={setCode} length={codeLength} />
               <Button
@@ -107,7 +119,12 @@ export function LoginPage() {
             </form>
           )}
           {step === "password" && (
-            <form className="login-form" onSubmit={submitPassword}>
+            <form
+              className="login-form"
+              onSubmit={(event) => {
+                void submitPassword(event);
+              }}
+            >
               <LockKeyhole className="password-icon" size={32} aria-hidden="true" />
               <p>Enter your Telegram two-step verification password.</p>
               <FormField
@@ -116,7 +133,9 @@ export function LoginPage() {
                 type="password"
                 autoComplete="current-password"
                 value={password}
-                onChange={(event) => setPassword(event.target.value)}
+                onChange={(event) => {
+                  setPassword(event.target.value);
+                }}
                 required
               />
               {hint && <p className="form-help">Hint: {hint}</p>}

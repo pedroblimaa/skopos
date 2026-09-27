@@ -9,11 +9,13 @@ export default tseslint.config(
     ignores: ["dist", "node_modules", "src-tauri/target"],
   },
   eslint.configs.recommended,
-  ...tseslint.configs.recommended,
+  ...tseslint.configs.strictTypeChecked,
+  { files: ["eslint.config.ts"], rules: { "@typescript-eslint/no-deprecated": "off" } },
   {
     files: ["**/*.{ts,tsx}"],
     languageOptions: {
       ecmaVersion: 2020,
+      parserOptions: { project: ["./tsconfig.json", "./tsconfig.node.json"] },
       globals: {
         ...globals.browser,
         ...globals.node,
@@ -24,9 +26,9 @@ export default tseslint.config(
       "react-refresh": reactRefresh,
     },
     rules: {
-      "react-hooks/exhaustive-deps": "warn",
+      "react-hooks/exhaustive-deps": "error",
       "react-hooks/rules-of-hooks": "error",
-      "react-refresh/only-export-components": ["warn", { allowConstantExport: true }],
+      "react-refresh/only-export-components": ["error", { allowConstantExport: true }],
     },
   },
 );

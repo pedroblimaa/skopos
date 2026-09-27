@@ -18,7 +18,7 @@ export function ConnectedPage() {
       try {
         const result = await telegram.status();
         if (!active) return;
-        if (!result.authorized) navigate("/login", { replace: true });
+        if (!result.authorized) void navigate("/login", { replace: true });
         else setStatus(result);
       } catch (reason) {
         if (active) setError(errorMessage(reason));
@@ -35,7 +35,7 @@ export function ConnectedPage() {
     setError("");
     try {
       await telegram.signOut();
-      navigate("/login", { replace: true });
+      void navigate("/login", { replace: true });
     } catch (reason) {
       setError(errorMessage(reason));
       setBusy(false);
@@ -59,7 +59,12 @@ export function ConnectedPage() {
               {error}
             </p>
           )}
-          <Button disabled={busy || !status} onClick={disconnect}>
+          <Button
+            disabled={busy || !status}
+            onClick={() => {
+              void disconnect();
+            }}
+          >
             {busy ? "Disconnecting…" : "Disconnect Telegram"}
           </Button>
         </Card>

@@ -1,4 +1,8 @@
 fn main() {
+    if std::env::var_os("CARGO_FEATURE_E2E").is_some() {
+        tauri_build::build();
+        return;
+    }
     let env_path = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../.env");
     println!("cargo:rerun-if-changed={}", env_path.display());
     for name in ["TG_ID", "TG_HASH"] {

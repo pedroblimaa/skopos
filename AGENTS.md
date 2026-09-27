@@ -62,5 +62,8 @@ Initial matching may be simple text/product detection plus price extraction and 
 - Use pnpm scripts for frontend checks and Cargo commands for Rust checks.
 - Run `pnpm check` before handing off implementation work.
 - Run `pnpm tauri build --no-bundle` when native build verification is relevant.
+- Keep both production TypeScript and Rust at or above 96% measured line coverage. Run `pnpm check` before handoff; never lower the thresholds or exclude production code to make a change pass.
+- Add or update a desktop E2E scenario for every implemented feature flow. Maintain `docs/e2e-coverage.md`; run the E2E-only build and `pnpm test:e2e` for changed user flows.
+- Keep E2E mocking plugins and permissions out of production builds. Changes to authentication, session storage, dependencies, and capabilities need explicit human review.
 
 This repository starts as a blank Tauri foundation. Do not add product-specific behavior until a task explicitly requests it.
