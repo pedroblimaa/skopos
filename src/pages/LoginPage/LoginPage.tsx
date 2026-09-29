@@ -5,7 +5,7 @@ import { FormField } from "../../components/FormField/FormField";
 import { QrDisplay } from "../../components/QrDisplay/QrDisplay";
 import { Tabs } from "../../components/Tabs/Tabs";
 import { VerificationCodeInput } from "../../components/VerificationCodeInput/VerificationCodeInput";
-import { useTelegramLogin, type Method } from "./useTelegramLogin";
+import { useTelegramLogin, type LoginMethod } from "./useTelegramLogin";
 import "./LoginPage.css";
 
 export function LoginPage() {
@@ -41,7 +41,7 @@ export function LoginPage() {
         </div>
         <h1 className="auth-heading">Authorize Telegram</h1>
         <Card>
-          <Tabs<Method>
+          <Tabs<LoginMethod>
             active={method}
             onChange={selectMethod}
             disabled={busy}

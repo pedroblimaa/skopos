@@ -1,4 +1,5 @@
 {
+  "identifier": "com.skopos.e2e",
   "app": {
     "withGlobalTauri": true,
     "security": {

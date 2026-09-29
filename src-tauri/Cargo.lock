@@ -3772,6 +3772,7 @@ dependencies = [
  "grammers-client",
  "grammers-session",
  "serde",
+ "serde_json",
  "tauri",
  "tauri-build",
  "tauri-plugin-wdio",

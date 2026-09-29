@@ -6,6 +6,7 @@ Use this guide when adding or reviewing code in `src-tauri`. It applies to the c
 
 - Keep `lib.rs` focused on Tauri setup: state registration, command registration, and application startup.
 - Use a feature entry file such as `telegram.rs` for module declarations and selective re-exports. Rust also supports `telegram/mod.rs`, but the named-file form makes module tabs easier to distinguish. Keep session, protocol, and command workflows in responsibility-named files rather than the entry file.
+- Within a feature, use folders to group responsibilities. Keep `mod.rs` focused on declarations and selective exports; put implementations in files such as `commands.rs`, `workflow.rs`, or `mapping.rs`, with `tests.rs` alongside them. Keep the Telegram response fixture in `telegram/e2e/`, separating scenario controls from protocol responses.
 - Follow the separation shown by Tauri's official plugin layout when useful: setup and exports in the entry file, commands at the Tauri boundary, and implementation in feature modules. Apply the responsibilities, not a fixed file template for every feature.
 - Keep Tauri commands thin. A command should validate its input, call the feature operation, and translate the result into a stable value for the frontend. It should not own a long Telegram protocol workflow.
 - Put Telegram calls and Telegram-specific types in the Telegram adapter. Keep future parsing and matching code independent of `grammers` types, as described in `AGENTS.md`.

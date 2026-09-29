@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: quality-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   dependency-review:
     if: github.event_name == 'pull_request'
@@ -38,6 +42,8 @@ jobs:
 
   rust:
     runs-on: windows-latest
+    env:
+      CARGO_TARGET_DIR: ${{ github.workspace }}/src-tauri/target/ci
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
@@ -46,9 +52,29 @@ jobs:
       - run: npm install --global pnpm@11.9.0
       - run: pnpm install --frozen-lockfile
       - run: rustup component add clippy rustfmt llvm-tools-preview
-      - run: cargo install cargo-llvm-cov --locked
-      - run: pnpm check:rust
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          workspaces: |
+            src-tauri -> target/ci
+            src-tauri -> target/llvm-cov-target
+          cache-on-failure: true
+      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2
+        with:
+          tool: cargo-llvm-cov@0.9.1
+      - name: Check Rust formatting
+        run: cargo fmt --manifest-path src-tauri/Cargo.toml -- --check
+      - name: Lint production Rust
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Lint E2E Rust
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --features e2e -- -D warnings
+      # Coverage runs the full unit suite and native desktop scenarios.
       - run: pnpm test:rust:coverage
+      - name: Save combined Rust coverage report
+        if: ${{ !cancelled() && hashFiles('src-tauri/target/llvm-cov-target/llvm-cov/html/index.html') != '' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: rust-coverage
+          path: src-tauri/target/llvm-cov-target/llvm-cov/html
       - run: pnpm tauri build --no-bundle
 
   desktop-e2e:
@@ -60,6 +86,10 @@ jobs:
           node-version: "24"
       - run: npm install --global pnpm@11.9.0
       - run: pnpm install --frozen-lockfile
+      - uses: Swatinem/rust-cache@49a0bdc70d2e1b713ca9e2869b211fcce03d3c1c # v2
+        with:
+          workspaces: src-tauri -> target
+          cache-on-failure: true
       - name: Build test-only desktop app
         run: |
           $env:VITE_E2E = '1'

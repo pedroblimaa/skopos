@@ -2,12 +2,12 @@ import { useEffect, useState, type SyntheticEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { errorMessage, telegram, type LoginResult, type QrToken } from "../../telegram";
 
-export type Method = "qr" | "phone";
+export type LoginMethod = "qr" | "phone";
 type Step = "phone" | "code" | "password";
 
 export function useTelegramLogin() {
   const navigate = useNavigate();
-  const [method, setMethod] = useState<Method>("qr");
+  const [method, setMethod] = useState<LoginMethod>("qr");
   const [step, setStep] = useState<Step>("phone");
   const [qr, setQr] = useState<QrToken | null>(null);
   const [phone, setPhone] = useState("");
@@ -17,87 +17,105 @@ export function useTelegramLogin() {
   const [delivery, setDelivery] = useState("");
   const [codeLength, setCodeLength] = useState<number | null>(null);
   const [error, setError] = useState("");
-  const [busy, setBusy] = useState(false);
-  const [ready, setReady] = useState(false);
-  const [subscribed, setSubscribed] = useState(false);
+  const [isBusy, setIsBusy] = useState(false);
+  const [isSessionChecked, setIsSessionChecked] = useState(false);
+  const [isSubscribed, setIsSubscribed] = useState(false);
 
   useEffect(() => {
     let active = true;
+
     async function checkSession() {
       try {
         const status = await telegram.status();
+
         if (!active) return;
+
         if (status.authorized) void navigate("/connected", { replace: true });
-        else setReady(true);
+        else setIsSessionChecked(true);
       } catch (reason) {
         if (active) {
           setError(errorMessage(reason));
-          setReady(true);
+          setIsSessionChecked(true);
         }
       }
     }
+
     void checkSession();
+
     return () => {
       active = false;
     };
   }, [navigate]);
 
   useEffect(() => {
-    if (!ready) return;
+    if (!isSessionChecked) return;
+
     let active = true;
     const unlisten: Array<() => void> = [];
-    async function subscribe() {
-      try {
-        unlisten.push(
-          await telegram.onQr((token) => {
-            if (active) {
-              setQr(token);
-              setError("");
-            }
-          }),
-        );
-        unlisten.push(
-          await telegram.onAuthenticated((status) => {
-            if (active && status.authorized) void navigate("/connected", { replace: true });
-          }),
-        );
-        unlisten.push(
-          await telegram.onPasswordRequired((value) => {
-            if (active) {
-              setHint(value);
-              setStep("password");
-            }
-          }),
-        );
-        unlisten.push(
-          await telegram.onError((message) => {
-            if (active) setError(message);
-          }),
-        );
-        if (active) setSubscribed(true);
-        else
-          unlisten.forEach((stop) => {
-            stop();
-          });
-      } catch (reason) {
-        unlisten.forEach((stop) => {
-          stop();
-        });
-        if (active) setError(errorMessage(reason));
-      }
-    }
-    void subscribe();
-    return () => {
+
+    function cleanup() {
       active = false;
-      unlisten.forEach((stop) => {
+
+      unlisten.splice(0).forEach((stop) => {
         stop();
       });
-    };
-  }, [ready, navigate]);
+    }
+
+    async function addListener<T>(
+      listen: (callback: (value: T) => void) => Promise<() => void>,
+      callback: (value: T) => void,
+    ) {
+      const stop = await listen((value) => {
+        if (active) callback(value);
+      });
+
+      if (!active) {
+        stop();
+        return false;
+      }
+
+      unlisten.push(stop);
+      return true;
+    }
+
+    async function subscribe() {
+      try {
+        const listeners = [
+          () => addListener(telegram.onQr, setQr),
+          () =>
+            addListener(telegram.onAuthenticated, (status) => {
+              if (status.authorized) void navigate("/connected", { replace: true });
+            }),
+          () =>
+            addListener(telegram.onPasswordRequired, (value) => {
+              setHint(value);
+              setStep("password");
+            }),
+          () => addListener(telegram.onError, setError),
+        ];
+
+        for (const register of listeners) {
+          if (!(await register())) return;
+        }
+
+        if (active) setIsSubscribed(true);
+      } catch (reason) {
+        if (active) setError(errorMessage(reason));
+
+        cleanup();
+      }
+    }
+
+    void subscribe();
+
+    return cleanup;
+  }, [isSessionChecked, navigate]);
 
   useEffect(() => {
-    if (!subscribed || method !== "qr" || step === "password") return;
+    if (!isSubscribed || method !== "qr" || step === "password") return;
+
     let active = true;
+
     async function startQr() {
       try {
         await telegram.startQr();
@@ -105,23 +123,18 @@ export function useTelegramLogin() {
         if (active) setError(errorMessage(reason));
       }
     }
+
     void startQr();
+
     return () => {
       active = false;
       void telegram.stopQr().catch(() => {});
     };
-  }, [subscribed, method, step]);
+  }, [isSubscribed, method, step]);
 
-  function handleResult(result: LoginResult) {
-    if (result.step === "authorized") void navigate("/connected", { replace: true });
-    else {
-      setHint(result.hint);
-      setStep("password");
-    }
-  }
-
-  function selectMethod(next: Method) {
+  function selectMethod(next: LoginMethod) {
     if (next === method) return;
+
     setMethod(next);
     setError("");
     setQr(null);
@@ -139,6 +152,7 @@ export function useTelegramLogin() {
   async function retryQr() {
     setError("");
     setQr(null);
+
     try {
       await telegram.startQr();
     } catch (reason) {
@@ -147,46 +161,57 @@ export function useTelegramLogin() {
   }
 
   async function requestCode(event: SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
+    await runSubmission(event, async () => {
       const result = await telegram.requestCode(phone.replace(/[\s()-]/g, ""));
+
+      if (result.step === "authorized") {
+        void navigate("/connected", { replace: true });
+        return;
+      }
+
       setCode("");
       setDelivery(result.message);
       setCodeLength(result.length);
       setStep("code");
-    } catch (reason) {
-      setError(errorMessage(reason));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function submitCode(event: SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
+    await runSubmission(event, async () => {
       handleResult(await telegram.submitCode(code));
-    } catch (reason) {
-      setError(errorMessage(reason));
-    } finally {
-      setBusy(false);
-    }
+    });
   }
 
   async function submitPassword(event: SyntheticEvent<HTMLFormElement>) {
-    event.preventDefault();
-    setBusy(true);
-    setError("");
-    try {
+    await runSubmission(event, async () => {
       handleResult(await telegram.submitPassword(password));
+    });
+    setPassword("");
+  }
+
+  function handleResult(result: LoginResult) {
+    if (result.step === "authorized") void navigate("/connected", { replace: true });
+    else {
+      setHint(result.hint);
+      setStep("password");
+    }
+  }
+
+  async function runSubmission(
+    event: SyntheticEvent<HTMLFormElement>,
+    action: () => Promise<void>,
+  ) {
+    event.preventDefault();
+
+    setIsBusy(true);
+    setError("");
+
+    try {
+      await action();
     } catch (reason) {
       setError(errorMessage(reason));
     } finally {
-      setBusy(false);
-      setPassword("");
+      setIsBusy(false);
     }
   }
 
@@ -201,7 +226,7 @@ export function useTelegramLogin() {
     delivery,
     codeLength,
     error,
-    busy,
+    busy: isBusy,
     setPhone,
     setCode,
     setPassword,

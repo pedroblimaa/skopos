@@ -10,6 +10,11 @@ export default tseslint.config(
   },
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
+  {
+    files: ["scripts/**/*.mjs"],
+    ...tseslint.configs.disableTypeChecked,
+    languageOptions: { globals: globals.node },
+  },
   { files: ["eslint.config.ts"], rules: { "@typescript-eslint/no-deprecated": "off" } },
   {
     files: ["**/*.{ts,tsx}"],
