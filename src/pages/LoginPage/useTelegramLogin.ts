@@ -1,6 +1,12 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import { errorMessage, telegram, type LoginResult, type QrToken } from "../../telegram";
+import {
+  errorMessage,
+  isCodeSubmissionError,
+  telegram,
+  type LoginResult,
+  type QrToken,
+} from "../../telegram";
 
 export type LoginMethod = "qr" | "phone";
 type Step = "phone" | "code" | "password";
@@ -177,15 +183,33 @@ export function useTelegramLogin() {
   }
 
   async function submitCode(event: SyntheticEvent<HTMLFormElement>) {
-    await runSubmission(event, async () => {
-      handleResult(await telegram.submitCode(code));
-    });
+    await runSubmission(
+      event,
+      async () => {
+        handleResult(await telegram.submitCode(code));
+      },
+      (reason) => {
+        if (!isCodeSubmissionError(reason) || !reason.canRetryCode) {
+          setCode("");
+          setStep("phone");
+        }
+      },
+    );
   }
 
   async function submitPassword(event: SyntheticEvent<HTMLFormElement>) {
-    await runSubmission(event, async () => {
-      handleResult(await telegram.submitPassword(password));
-    });
+    await runSubmission(
+      event,
+      async () => {
+        handleResult(await telegram.submitPassword(password));
+      },
+      (reason) => {
+        if (errorMessage(reason) !== "That password is incorrect. Try again.") {
+          setHint(null);
+          setStep("phone");
+        }
+      },
+    );
     setPassword("");
   }
 
@@ -200,6 +224,7 @@ export function useTelegramLogin() {
   async function runSubmission(
     event: SyntheticEvent<HTMLFormElement>,
     action: () => Promise<void>,
+    onError?: (reason: unknown) => void,
   ) {
     event.preventDefault();
 
@@ -209,6 +234,7 @@ export function useTelegramLogin() {
     try {
       await action();
     } catch (reason) {
+      onError?.(reason);
       setError(errorMessage(reason));
     } finally {
       setIsBusy(false);

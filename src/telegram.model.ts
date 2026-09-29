@@ -11,6 +11,11 @@ export interface QrToken {
 export type LoginResult =
   { step: "authorized"; status: SessionStatus } | { step: "passwordRequired"; hint: string | null };
 
+export interface CodeSubmissionError {
+  message: string;
+  canRetryCode: boolean;
+}
+
 export type CodeRequest =
   | { step: "codeSent"; message: string; length: number | null }
   | { step: "authorized"; status: SessionStatus };

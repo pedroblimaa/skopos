@@ -4,3 +4,9 @@ allowBuilds:
   geckodriver: false
 patchedDependencies:
   "@wdio/tauri-service@1.4.0": patches/@wdio__tauri-service@1.4.0.patch
+overrides:
+  # Only replace legacy ranges; newer upstream majors keep their own versions.
+  # Puppeteer 3 removes extract-zip, which has no patched npm release.
+  "@wdio/utils>@puppeteer/browsers@2": ^3.2.3
+  # Mocha 10 still requests the vulnerable serializer major.
+  "mocha>serialize-javascript@6": ^7.1.1

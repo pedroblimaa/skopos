@@ -1,6 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
-import type { CodeRequest, LoginResult, QrToken, SessionStatus } from "./telegram.model";
+import type {
+  CodeRequest,
+  CodeSubmissionError,
+  LoginResult,
+  QrToken,
+  SessionStatus,
+} from "./telegram.model";
 
 export type { CodeRequest, LoginResult, QrToken, SessionStatus } from "./telegram.model";
 
@@ -22,7 +28,20 @@ export const telegram = {
 };
 
 export function errorMessage(error: unknown): string {
+  if (isCodeSubmissionError(error)) return error.message;
+
   return error instanceof Error ? error.message : String(error);
+}
+
+export function isCodeSubmissionError(error: unknown): error is CodeSubmissionError {
+  if (typeof error !== "object" || error === null) return false;
+
+  return (
+    "message" in error &&
+    typeof error.message === "string" &&
+    "canRetryCode" in error &&
+    typeof error.canRetryCode === "boolean"
+  );
 }
 
 function command<T>(name: string, args?: Record<string, unknown>): Promise<T> {

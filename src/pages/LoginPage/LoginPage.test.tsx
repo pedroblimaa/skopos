@@ -266,6 +266,118 @@ describe("LoginPage", () => {
     expect(auth.submitCode).not.toHaveBeenCalled();
   });
 
+  it("returns to phone entry when a verification code expires", async () => {
+    auth.submitCode.mockRejectedValueOnce({
+      message: "This code expired. Request a new one.",
+      canRetryCode: false,
+    });
+
+    renderLogin();
+    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.change(screen.getByLabelText("Account mobile number"), {
+      target: { value: "+5511999999999" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send login code" }));
+    await screen.findByLabelText("Telegram verification code");
+
+    fireEvent.change(screen.getByLabelText("Telegram verification code"), {
+      target: { value: "12345" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify code" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Account mobile number")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("This code expired");
+    fireEvent.click(screen.getByRole("button", { name: "Send login code" }));
+    await waitFor(() => {
+      expect(auth.requestCode).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  it("returns to phone entry when session verification fails after code submission", async () => {
+    auth.submitCode.mockRejectedValueOnce({
+      message: "Could not reach Telegram. Check your connection and try again.",
+      canRetryCode: false,
+    });
+
+    renderLogin();
+    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.change(screen.getByLabelText("Account mobile number"), {
+      target: { value: "+5511999999999" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send login code" }));
+    await screen.findByLabelText("Telegram verification code");
+
+    fireEvent.change(screen.getByLabelText("Telegram verification code"), {
+      target: { value: "12345" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify code" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Account mobile number")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not reach Telegram");
+  });
+
+  it("keeps code entry when the submitted code is invalid", async () => {
+    auth.submitCode.mockRejectedValueOnce({
+      message: "That verification code is invalid. Check it and try again.",
+      canRetryCode: true,
+    });
+
+    renderLogin();
+    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.change(screen.getByLabelText("Account mobile number"), {
+      target: { value: "+5511999999999" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send login code" }));
+    await screen.findByLabelText("Telegram verification code");
+
+    fireEvent.change(screen.getByLabelText("Telegram verification code"), {
+      target: { value: "00000" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify code" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent("invalid");
+    });
+    expect(screen.getByLabelText("Telegram verification code")).toBeInTheDocument();
+  });
+
+  it("restarts login after a password request fails", async () => {
+    auth.submitCode.mockResolvedValueOnce({ step: "passwordRequired", hint: null });
+    auth.submitPassword.mockRejectedValueOnce(
+      "Could not reach Telegram. Check your connection and try again.",
+    );
+
+    renderLogin();
+    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.change(screen.getByLabelText("Account mobile number"), {
+      target: { value: "+5511999999999" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Send login code" }));
+    await screen.findByLabelText("Telegram verification code");
+
+    fireEvent.change(screen.getByLabelText("Telegram verification code"), {
+      target: { value: "12345" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Verify code" }));
+    await screen.findByLabelText("Password");
+
+    fireEvent.change(screen.getByLabelText("Password"), { target: { value: "secret" } });
+    fireEvent.click(screen.getByRole("button", { name: "Continue" }));
+
+    await waitFor(() => {
+      expect(screen.getByLabelText("Account mobile number")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not reach Telegram");
+    fireEvent.click(screen.getByRole("button", { name: "Send login code" }));
+    await waitFor(() => {
+      expect(auth.requestCode).toHaveBeenCalledTimes(2);
+    });
+  });
+
   it("continues through the two-step password challenge", async () => {
     auth.submitCode.mockResolvedValueOnce({ step: "passwordRequired", hint: "My hint" });
     auth.submitPassword.mockImplementationOnce(() => {

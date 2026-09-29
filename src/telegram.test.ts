@@ -4,7 +4,7 @@ const api = vi.hoisted(() => ({ invoke: vi.fn(), listen: vi.fn() }));
 vi.mock("@tauri-apps/api/core", () => ({ invoke: api.invoke }));
 vi.mock("@tauri-apps/api/event", () => ({ listen: api.listen }));
 
-import { errorMessage, telegram } from "./telegram";
+import { errorMessage, isCodeSubmissionError, telegram } from "./telegram";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -58,6 +58,9 @@ describe("Telegram IPC adapter", () => {
     expect(errorMessage(new Error("failed"))).toBe("failed");
     expect(errorMessage("failed")).toBe("failed");
     expect(errorMessage(42)).toBe("42");
+    expect(errorMessage({ message: "expired", canRetryCode: false })).toBe("expired");
+    expect(isCodeSubmissionError({ message: "invalid", canRetryCode: true })).toBe(true);
+    expect(isCodeSubmissionError({ message: "invalid" })).toBe(false);
   });
 
   it("uses the interceptable global API in the E2E build", async () => {

@@ -5,10 +5,13 @@ import { beforeEach, describe, it } from "mocha";
 interface Scenario {
   authorized?: boolean;
   passwordRequired?: boolean;
+  codeExpired?: boolean;
+  passwordError?: boolean;
   immediateAuthorized?: boolean;
   qrFailures?: number;
   requestError?: string;
   statusError?: string;
+  statusErrorAfterLogin?: boolean;
   signOutError?: string;
 }
 
@@ -201,6 +204,35 @@ describe("Telegram desktop flows", () => {
     await $("#verification-code").waitForDisplayed();
   });
 
+  it("requests a new code after the previous code expires", async () => {
+    await setUp({ codeExpired: true });
+
+    await choosePhone();
+    await $("button=Send login code").click();
+    await $("#verification-code").setValue("12345");
+    await $("button=Verify code").click();
+
+    await $("#phone").waitForDisplayed();
+    assert.equal(await $("[role=alert]").getText(), "This code expired. Request a new one.");
+    await $("button=Send login code").click();
+    await $("#verification-code").waitForDisplayed();
+  });
+
+  it("leaves code entry when session verification fails after login", async () => {
+    await setUp({ statusErrorAfterLogin: true });
+
+    await choosePhone();
+    await $("button=Send login code").click();
+    await $("#verification-code").setValue("12345");
+    await $("button=Verify code").click();
+
+    await $("#phone").waitForDisplayed();
+    assert.equal(
+      await $("[role=alert]").getText(),
+      "Could not reach Telegram. Check your connection and try again.",
+    );
+  });
+
   it("keeps the password step after an incorrect password", async () => {
     await setUp({ passwordRequired: true });
 
@@ -215,6 +247,25 @@ describe("Telegram desktop flows", () => {
     await $("[role=alert]").waitForDisplayed();
     assert.equal(await $("[role=alert]").getText(), "That password is incorrect. Try again.");
     await $("#password").waitForDisplayed();
+  });
+
+  it("restarts phone login after a password request fails", async () => {
+    await setUp({ passwordRequired: true, passwordError: true });
+
+    await choosePhone();
+    await $("button=Send login code").click();
+    await $("#verification-code").setValue("12345");
+    await $("button=Verify code").click();
+    await $("#password").setValue("secret");
+    await $("button=Continue").click();
+
+    await $("#phone").waitForDisplayed();
+    assert.equal(
+      await $("[role=alert]").getText(),
+      "Could not reach Telegram. Check your connection and try again.",
+    );
+    await $("button=Send login code").click();
+    await $("#verification-code").waitForDisplayed();
   });
 
   it("keeps the connected page after a logout failure", async () => {

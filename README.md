@@ -37,7 +37,7 @@ pnpm check
 pnpm tauri build --no-bundle
 ```
 
-The check command runs Prettier, ESLint, TypeScript, Vitest with a 96% line-coverage gate, the frontend production build, Rust formatting, Clippy, Rust tests, and a 96% Rust line-coverage gate combining unit tests with native desktop E2E scenarios. Install `cargo-llvm-cov` 0.9.1 and the Rust `llvm-tools-preview` component to run that gate. `pnpm test:rust:coverage` uses a Node.js runner with no PowerShell or Bash dependency. The runner handles Windows, Linux, and macOS paths; native desktop E2E is currently verified on Windows only. Desktop scenarios use a test-only Telegram API fixture and are documented in `docs/e2e-coverage.md`.
+The check command runs Prettier, ESLint, TypeScript, Vitest with a 96% line-coverage gate, the frontend production build, Rust formatting, Clippy, Rust tests, and a 96% Rust line-coverage gate combining unit tests with native desktop E2E scenarios. Install `cargo-llvm-cov` 0.9.1 and the Rust `llvm-tools-preview` component to run that gate. `pnpm test:rust:coverage` uses a Node.js runner with no PowerShell or Bash dependency. The runner handles Windows, Linux, and macOS paths; native desktop E2E is currently verified on Windows only. Desktop scenarios use a test-only Telegram API fixture.
 
 ## Project layout
 

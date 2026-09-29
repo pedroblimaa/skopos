@@ -2,8 +2,19 @@ use super::{
     workflow::{self, validate_phone, AuthEvents},
     CodeRequest, LoginResult,
 };
-use crate::telegram::{client::SessionStatus, state::AuthState};
+use crate::telegram::{
+    client::SessionStatus,
+    state::{AuthState, LoginStep},
+};
+use serde::Serialize;
 use tauri::{AppHandle, Emitter, State};
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct CodeSubmissionError {
+    message: String,
+    can_retry_code: bool,
+}
 
 #[tauri::command]
 pub async fn request_phone_code(
@@ -25,16 +36,29 @@ pub async fn submit_phone_code(
     app: AppHandle,
     state: State<'_, AuthState>,
     code: String,
-) -> Result<LoginResult, String> {
+) -> Result<LoginResult, CodeSubmissionError> {
     if code.trim().is_empty() {
-        return Err("Enter the verification code.".into());
+        return Err(CodeSubmissionError {
+            message: "Enter the verification code.".into(),
+            can_retry_code: true,
+        });
     }
 
-    let context = state.client(&app).await.map_err(|error| error.message())?;
-
-    workflow::submit_phone_code(&state, context, &TauriEvents(&app), code)
+    let context = state
+        .client(&app)
         .await
-        .map_err(|error| error.message())
+        .map_err(|error| CodeSubmissionError {
+            message: error.message(),
+            can_retry_code: false,
+        })?;
+
+    match workflow::submit_phone_code(&state, context, &TauriEvents(&app), code).await {
+        Ok(result) => Ok(result),
+        Err(error) => Err(CodeSubmissionError {
+            message: error.message(),
+            can_retry_code: matches!(state.login.lock().await.step, LoginStep::Phone { .. }),
+        }),
+    }
 }
 
 #[tauri::command]

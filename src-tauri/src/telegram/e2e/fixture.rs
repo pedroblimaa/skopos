@@ -13,10 +13,13 @@ pub(crate) struct FixtureState(pub(in crate::telegram) Mutex<Fixture>);
 pub(crate) struct Scenario {
     pub(in crate::telegram) authorized: bool,
     pub(in crate::telegram) password_required: bool,
+    pub(in crate::telegram) code_expired: bool,
+    pub(in crate::telegram) password_error: bool,
     pub(in crate::telegram) immediate_authorized: bool,
     pub(in crate::telegram) qr_failures: u32,
     pub(in crate::telegram) request_error: Option<String>,
     pub(in crate::telegram) status_error: Option<String>,
+    pub(in crate::telegram) status_error_after_login: bool,
     pub(in crate::telegram) sign_out_error: Option<String>,
 }
 
@@ -55,7 +58,9 @@ impl FixtureState {
 
     pub(in crate::telegram) fn is_authorized(&self) -> Result<bool, InvocationError> {
         let fixture = self.0.lock().unwrap();
-        if fixture.scenario.status_error.is_some() {
+        if fixture.scenario.status_error.is_some()
+            || (fixture.scenario.status_error_after_login && fixture.scenario.authorized)
+        {
             return Err(InvocationError::Dropped);
         }
 
@@ -67,6 +72,10 @@ impl FixtureState {
         token: PasswordToken,
         password: &[u8],
     ) -> Result<(), Box<SignInError>> {
+        if self.0.lock().unwrap().scenario.password_error {
+            return Err(Box::new(SignInError::Other(InvocationError::Dropped)));
+        }
+
         if password != b"secret" {
             return Err(Box::new(SignInError::InvalidPassword(token)));
         }
@@ -128,6 +137,10 @@ impl Fixture {
     fn sign_in(&mut self, body: &[u8]) -> Result<Vec<u8>, InvocationError> {
         let request =
             tl::functions::auth::SignIn::from_bytes(body).map_err(|_| InvocationError::Dropped)?;
+
+        if self.scenario.code_expired {
+            return Err(rpc("PHONE_CODE_EXPIRED"));
+        }
 
         if request.phone_code.as_deref() != Some("12345") {
             return Err(rpc("PHONE_CODE_INVALID"));
