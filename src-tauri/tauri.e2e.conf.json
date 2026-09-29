@@ -1,0 +1,16 @@
+{
+  "identifier": "com.skopos.e2e",
+  "app": {
+    "withGlobalTauri": true,
+    "security": {
+      "capabilities": [
+        "default",
+        {
+          "identifier": "e2e-webdriver",
+          "windows": ["main"],
+          "permissions": ["wdio:default", "wdio-webdriver:default"]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,63 @@
+:root {
+  font-family: Inter, ui-sans-serif, system-ui, sans-serif;
+  color: #dae2fd;
+  background: #0b1326;
+  font-synthesis: none;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+* {
+  box-sizing: border-box;
+}
+body {
+  margin: 0;
+  min-width: 320px;
+}
+button,
+input {
+  font: inherit;
+}
+button {
+  cursor: pointer;
+}
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+:focus-visible {
+  outline: 2px solid #86cfff;
+  outline-offset: 3px;
+}
+.auth-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 36px 20px;
+  background:
+    radial-gradient(ellipse 75% 55% at 50% -10%, rgba(36, 161, 222, 0.17), transparent), #0b1326;
+}
+.auth-layout {
+  width: min(100%, 480px);
+}
+.auth-heading {
+  font-family: "Plus Jakarta Sans", Inter, sans-serif;
+  text-align: center;
+  font-size: clamp(28px, 4vw, 40px);
+  letter-spacing: -0.03em;
+  line-height: 1.2;
+  margin: 0 0 28px;
+}
+.form-help {
+  color: #bec8d1;
+  font-size: 12px;
+  line-height: 1.5;
+  margin: 0;
+}
+.error {
+  background: rgba(255, 180, 171, 0.12);
+  color: #ffb4ab;
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 13px;
+  margin: 0 0 16px;
+}

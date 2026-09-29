@@ -1,11 +1,23 @@
-import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { cleanup, render, screen } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
 import App from "./App";
 
-describe("App", () => {
-  it("renders the blank Skopos shell", () => {
-    render(<App />);
+vi.mock("./pages/LoginPage/LoginPage", () => ({
+  LoginPage: () => <h1>Login view</h1>,
+}));
+vi.mock("./pages/ConnectedPage/ConnectedPage", () => ({
+  ConnectedPage: () => <h1>Connected view</h1>,
+}));
 
-    expect(screen.getByRole("heading", { name: "Skopos" })).toBeInTheDocument();
-  });
+afterEach(cleanup);
+
+it.each([
+  ["/", "Login view"],
+  ["/login", "Login view"],
+  ["/connected", "Connected view"],
+  ["/unknown", "Login view"],
+])("routes %s to %s", (path, heading) => {
+  window.history.replaceState({}, "", path);
+  render(<App />);
+  expect(screen.getByRole("heading", { name: heading })).toBeInTheDocument();
 });
