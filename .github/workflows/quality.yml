@@ -71,7 +71,7 @@ jobs:
       - run: pnpm test:rust:coverage
       - name: Save combined Rust coverage report
         if: ${{ !cancelled() && hashFiles('src-tauri/target/llvm-cov-target/llvm-cov/html/index.html') != '' }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: rust-coverage
           path: src-tauri/target/llvm-cov-target/llvm-cov/html
