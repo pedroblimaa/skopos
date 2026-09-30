@@ -3771,6 +3771,7 @@ dependencies = [
  "dotenvy",
  "grammers-client",
  "grammers-session",
+ "libsql",
  "serde",
  "serde_json",
  "tauri",

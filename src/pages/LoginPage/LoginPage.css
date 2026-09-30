@@ -1,9 +1,9 @@
 .brand {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   justify-content: center;
-  color: #bec8d1;
+  color: var(--color-secondary);
   font-size: 14px;
   margin-bottom: 28px;
 }
@@ -19,15 +19,15 @@
   margin: 30px 0 0;
   width: 100%;
   display: grid;
-  gap: 14px;
-  color: #bec8d1;
+  gap: var(--space-4);
+  color: var(--color-secondary);
   font-size: 13px;
 }
 .instructions li {
   counter-increment: steps;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   min-height: 36px;
 }
 .instructions li::before {
@@ -37,16 +37,16 @@
   display: grid;
   place-items: center;
   border-radius: 50%;
-  background: #2d3449;
-  color: #86cfff;
+  background: var(--color-separator);
+  color: var(--color-link);
   font-weight: 700;
 }
 .login-form {
   display: grid;
-  gap: 18px;
+  gap: 20px;
 }
 .password-icon {
-  color: #86cfff;
+  color: var(--color-link);
   margin: auto;
 }
 @media (max-width: 520px) {

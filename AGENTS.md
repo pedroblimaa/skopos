@@ -80,16 +80,37 @@ Initial matching may be simple text/product detection plus price extraction and 
 - Organize functions in reading order: entry points first, direct helpers in call order, and low-level utilities last. Keep closely related types near their implementation.
 - Prefer clear domain names, focused functions, explicit boundary types, flat control flow, isolated side effects, and predictable errors. Keep structured Rust errors until the command or event boundary translates them for the UI.
 - Name booleans for the positive state they represent, such as `isBusy` or `hasSession`. Prefer boolean `&&` rendering to a ternary returning `null`; use an explicitly boolean condition where necessary.
-- Separate distinct logical blocks inside functions with blank lines; keep related statements together and single-block functions compact.
+- Do not write cramped code. Separate distinct logical steps with one blank line: setup, validation, side effects, result handling, and return. Keep statements for the same step together; do not add a blank line after every statement. This applies to implementation, helpers, fixtures, and tests in every language.
 - Use `void` on promises only for intentional fire-and-forget work or lint requirements. Every background operation needs an owner, cleanup, and an explicit failure policy.
 - Search for reusable components and styles before adding UI. Feature CSS may arrange shared controls but should not redefine their visual contract. Extend a shared component with a deliberate variant when needed.
 - Keep work limited to the requested flow. Avoid speculative fallbacks, compatibility for unreleased formats, generic scaffolding, needless indirection, and forced symmetry.
 - Remove temporary diagnostics. Comments should explain a constraint or non-obvious decision, not narrate the code or preserve conversation history.
 - Review the entire changed implementation before handoff for clarity, duplication, ownership, error paths, and obvious bugs. Improve concrete problems without rewriting sound code for personal preference.
+- Before handoff, inspect every changed function and test for visual grouping. Split uninterrupted runs of statements that perform different steps, including repeated action/assertion sequences. Formatter and lint success do not replace this readability review.
+
+## Design direction
+
+Skopos uses an Apple-inspired desktop design, adapted to its React/Tauri shell. Prioritize clarity, visual hierarchy, and familiar interaction. These are project choices informed by Apple's guidance, not a requirement to reproduce native Apple controls.
+
+- Keep the interface calm: ink violet backgrounds, opaque content surfaces, warm porcelain text, and a seafoam accent for primary actions, links, and focus. Reserve red for errors and destructive actions.
+- Define all literal colors in `src/color-scheme.css`; keep radii, shadow geometry, fonts, spacing, and motion tokens in `src/global.css`. Reuse them across pages and components rather than introducing local palette variations.
+- Always use CSS color variables outside `src/color-scheme.css`, including shadow colors, SVG/QR colors, transparency, and scrollbars. `pnpm lint:colors` enforces this for frontend source and runs as part of `pnpm lint`, `pnpm check`, and `pnpm build`. Keep the palette distinct from Apple; use Apple only as a reference for hierarchy and interaction.
+- Use the platform system font stack. Build hierarchy with size, weight, and spacing: page titles around 28-32px, section headings 16-18px, controls/body 13-15px, secondary labels at least 12px. Avoid uppercase tracking for ordinary form labels.
+- Align related content and use a consistent 4px spacing rhythm. Give sections more space than controls within a section. Keep forms constrained to a readable width and let narrow windows wrap naturally.
+- Use rounded corners consistently: controls around 14px, content panels around 22px. Prefer subtle separators and surface differences to heavy outlines. Keep content shadows modest; reserve stronger depth for menus and popovers.
+- Use restrained translucency and blur for navigation and floating menus only. Keep forms and product content opaque and legible. Avoid stacking glass surfaces or adding decorative gradients behind ordinary content.
+- Keep one prominent primary action per task. Use quiet secondary actions, concise sentence-case labels, and the user-facing vocabulary Products, Add product, Edit product, Product name, and Alternative name.
+- Reveal optional explanations through the shared InfoTooltip component. Tooltips must also work with keyboard focus, support Escape dismissal, and remain readable while hovered. Keep required instructions and validation visible.
+- Animate feedback rather than decoration: hover/focus changes around 160-180ms, page entrances around 220ms, small travel distances, and no bounce. Respect `prefers-reduced-motion`; never delay an action to finish an animation.
+- Preserve visible keyboard focus, text contrast, clear disabled/error states, and accessible names for icon controls. Use existing Lucide icons with consistent size and optical alignment.
+- Extend shared controls for new visual states instead of restyling them from page CSS. Review login, product list, form, toolbar, and floating panels together when changing shared tokens.
+
+Sources: [Apple layout guidance](https://developer.apple.com/design/human-interface-guidelines/layout), [Apple color guidance](https://developer.apple.com/design/human-interface-guidelines/color), [Meet Liquid Glass](https://developer.apple.com/videos/play/wwdc2025/219/), and [Apple accessibility guidance](https://developer.apple.com/design/human-interface-guidelines/accessibility).
 
 ## Test discipline
 
 - Test observable behavior and failure paths. Keep automated tests isolated from real Telegram accounts, credentials, and production session files.
+- Make each test's setup, action, and assertions visually distinct with blank lines. For multi-step flows, separate each new action and its resulting assertions from the previous step. Keep related assertions together; use descriptive test names instead of comments labeling obvious phases.
 - Run focused checks first, then the required `pnpm check`. Keep assertions meaningful when refactoring; do not weaken tests or exclude production code to satisfy coverage.
 
 Do not add product-specific behavior until a task explicitly requests it.

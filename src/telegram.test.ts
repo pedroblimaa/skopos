@@ -20,6 +20,10 @@ describe("Telegram IPC adapter", () => {
     await telegram.submitCode("12345");
     await telegram.submitPassword("secret");
     await telegram.signOut();
+    await telegram.createWatch({ phrases: ["RTX 5070"], maxPriceCents: null });
+    await telegram.listWatches();
+    await telegram.updateWatch(7, { phrases: ["RTX 5080"], maxPriceCents: 400000 });
+    await telegram.deleteWatch(7);
 
     expect(api.invoke.mock.calls).toEqual([
       ["session_status", undefined],
@@ -29,6 +33,10 @@ describe("Telegram IPC adapter", () => {
       ["submit_phone_code", { code: "12345" }],
       ["submit_password", { password: "secret" }],
       ["sign_out", undefined],
+      ["create_watch", { input: { phrases: ["RTX 5070"], maxPriceCents: null } }],
+      ["list_watches", undefined],
+      ["update_watch", { id: 7, input: { phrases: ["RTX 5080"], maxPriceCents: 400000 } }],
+      ["delete_watch", { id: 7 }],
     ]);
   });
 

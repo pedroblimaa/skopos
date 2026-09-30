@@ -53,6 +53,31 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("LoginPage", () => {
+  it("shows session restoration instead of login while checking a saved session", async () => {
+    let resolveStatus!: (status: SessionStatus) => void;
+    auth.status.mockReturnValueOnce(
+      new Promise<SessionStatus>((resolve) => {
+        resolveStatus = resolve;
+      }),
+    );
+
+    renderLogin();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Restoring your session");
+    expect(screen.queryByRole("heading", { name: "Authorize Telegram" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("tab")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Telegram login QR code")).not.toBeInTheDocument();
+    expect(auth.startQr).not.toHaveBeenCalled();
+
+    await act(async () => {
+      resolveStatus({ authorized: true, displayName: "Pedro" });
+      await Promise.resolve();
+    });
+
+    expect(screen.getByRole("heading", { name: "Telegram connected" })).toBeInTheDocument();
+    expect(auth.startQr).not.toHaveBeenCalled();
+  });
+
   it("handles QR, error, and authorization events after subscribing", async () => {
     renderLogin();
     await waitFor(() => {
@@ -166,7 +191,7 @@ describe("LoginPage", () => {
 
     renderLogin();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     fireEvent.change(screen.getByLabelText("Account mobile number"), {
       target: { value: "+55 11 99999 9999" },
     });
@@ -186,7 +211,7 @@ describe("LoginPage", () => {
     fireEvent.click(screen.getByRole("tab", { name: "Quick QR Scan" }));
     expect(auth.startQr).toHaveBeenCalledTimes(1);
 
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     fireEvent.click(screen.getByRole("tab", { name: "Quick QR Scan" }));
     await waitFor(() => {
       expect(auth.startQr).toHaveBeenCalledTimes(2);
@@ -202,12 +227,13 @@ describe("LoginPage", () => {
 
   it("shows QR login and switches to phone login", async () => {
     renderLogin();
-    expect(screen.getByRole("heading", { name: "Authorize Telegram" })).toBeInTheDocument();
+
+    expect(await screen.findByRole("heading", { name: "Authorize Telegram" })).toBeInTheDocument();
     await waitFor(() => {
       expect(auth.startQr).toHaveBeenCalled();
     });
 
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     expect(screen.getByLabelText("Account mobile number")).toBeInTheDocument();
   });
 
@@ -222,7 +248,7 @@ describe("LoginPage", () => {
 
     renderLogin();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     fireEvent.change(screen.getByLabelText("Account mobile number"), {
       target: { value: "+5511999999999" },
     });
@@ -254,7 +280,7 @@ describe("LoginPage", () => {
 
     renderLogin();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     fireEvent.change(screen.getByLabelText("Account mobile number"), {
       target: { value: "+5511999999999" },
     });
@@ -273,7 +299,7 @@ describe("LoginPage", () => {
     });
 
     renderLogin();
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     fireEvent.change(screen.getByLabelText("Account mobile number"), {
       target: { value: "+5511999999999" },
     });
@@ -302,7 +328,7 @@ describe("LoginPage", () => {
     });
 
     renderLogin();
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     fireEvent.change(screen.getByLabelText("Account mobile number"), {
       target: { value: "+5511999999999" },
     });
@@ -327,7 +353,7 @@ describe("LoginPage", () => {
     });
 
     renderLogin();
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     fireEvent.change(screen.getByLabelText("Account mobile number"), {
       target: { value: "+5511999999999" },
     });
@@ -352,7 +378,7 @@ describe("LoginPage", () => {
     );
 
     renderLogin();
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     fireEvent.change(screen.getByLabelText("Account mobile number"), {
       target: { value: "+5511999999999" },
     });
@@ -390,7 +416,7 @@ describe("LoginPage", () => {
 
     renderLogin();
 
-    fireEvent.click(screen.getByRole("tab", { name: "Phone Number" }));
+    fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));
     fireEvent.change(screen.getByLabelText("Account mobile number"), {
       target: { value: "+5511999999999" },
     });

@@ -1,0 +1,205 @@
+.watch-page {
+  padding: 16px 20px 48px;
+}
+.watch-layout {
+  width: min(100%, 640px);
+  margin: 0 auto;
+}
+.watch-add,
+.watch-remove {
+  border: 0;
+  background: none;
+  color: var(--color-link);
+  padding: 0;
+  transition: color var(--motion-feedback) var(--ease-standard);
+}
+.watch-breadcrumb {
+  margin-bottom: 40px;
+  font-size: 13px;
+}
+.watch-breadcrumb ol {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+.watch-breadcrumb li {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-3);
+  color: var(--color-muted);
+}
+.watch-breadcrumb a {
+  color: var(--color-link);
+  text-decoration: none;
+  transition: color var(--motion-feedback) var(--ease-standard);
+}
+.watch-breadcrumb a:hover {
+  color: var(--color-text);
+  text-decoration: underline;
+}
+.watch-breadcrumb [aria-current="page"] {
+  color: var(--color-secondary);
+}
+.watch-layout h1 {
+  font-family: var(--font-system);
+  font-size: 28px;
+  margin: 0 0 28px;
+}
+.watch-form {
+  display: grid;
+  gap: var(--space-6);
+}
+.watch-form h2 {
+  margin: 0;
+  font-size: 18px;
+}
+.watch-help {
+  margin: 0;
+  color: var(--color-secondary);
+  line-height: 1.5;
+  font-size: 13px;
+}
+.watch-phrases {
+  display: grid;
+  gap: 20px;
+}
+.watch-phrase {
+  display: grid;
+  gap: var(--space-2);
+}
+.watch-phrase-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--space-3);
+}
+.watch-phrase label,
+.watch-price label {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+.watch-remove,
+.watch-add {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+}
+.watch-phrase input,
+.watch-price-input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  background: var(--color-input);
+  color: var(--color-text);
+  transition:
+    border-color var(--motion-feedback) var(--ease-standard),
+    background-color var(--motion-feedback) var(--ease-standard),
+    box-shadow var(--motion-feedback) var(--ease-standard);
+}
+.watch-phrase input {
+  padding: 10px 13px;
+}
+.watch-phrase input::placeholder,
+.watch-price-input input::placeholder {
+  color: var(--color-muted);
+}
+.watch-phrase input[aria-invalid="true"],
+.watch-price-input:has(input[aria-invalid="true"]) {
+  border-color: var(--color-danger);
+}
+.watch-add {
+  justify-self: start;
+  font-weight: 600;
+}
+.watch-price {
+  display: grid;
+  gap: var(--space-2);
+  border-top: 1px solid var(--color-separator);
+  padding-top: 24px;
+}
+.watch-price label span {
+  color: var(--color-secondary);
+  font-weight: 400;
+}
+.watch-price-input {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  padding: 0 13px;
+}
+.watch-price-input span {
+  color: var(--color-link);
+  font-weight: 600;
+  font-size: 13px;
+}
+.watch-price-input input {
+  flex: 1;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: var(--color-transparent);
+  color: inherit;
+}
+.watch-field-error {
+  color: var(--color-danger);
+  font-size: 12px;
+  margin: 0;
+}
+.watch-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-2);
+}
+@media (max-width: 520px) {
+  .watch-page {
+    padding: 16px 16px 28px;
+  }
+}
+
+.watch-fields {
+  border: 0;
+  margin: 0;
+  padding: 0;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-6);
+}
+.watch-add:hover,
+.watch-remove:hover {
+  color: var(--color-text);
+}
+.watch-phrase input:focus,
+.watch-price-input:focus-within {
+  border-color: var(--color-link);
+  background: var(--color-surface-raised);
+  box-shadow: 0 0 0 3px var(--color-accent-soft);
+  outline: none;
+}
+
+.watch-search-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.watch-phrase input[aria-invalid="true"]:focus,
+.watch-price-input:has(input[aria-invalid="true"]):focus-within {
+  border-color: var(--color-danger);
+  box-shadow: 0 0 0 3px var(--color-danger-soft);
+}
+@media (prefers-reduced-motion: reduce) {
+  .watch-phrase input,
+  .watch-price-input,
+  .watch-add,
+  .watch-remove,
+  .watch-breadcrumb a {
+    transition: none;
+  }
+}

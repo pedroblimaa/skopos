@@ -252,6 +252,7 @@ export function useTelegramLogin() {
     delivery,
     codeLength,
     error,
+    isRestoringSession: !isSessionChecked,
     busy: isBusy,
     setPhone,
     setCode,

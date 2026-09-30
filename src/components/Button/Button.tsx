@@ -3,7 +3,7 @@ import "./Button.css";
 
 interface Props extends ButtonHTMLAttributes<HTMLButtonElement> {
   children: ReactNode;
-  variant?: "primary" | "quiet";
+  variant?: "primary" | "quiet" | "danger";
 }
 
 export function Button({ children, variant = "primary", className = "", ...props }: Props) {

@@ -22,6 +22,10 @@ describe("Telegram desktop flows", () => {
     if (!first) await browser.refresh();
 
     first = false;
+
+    await browser.execute(() => {
+      window.history.replaceState({}, "", "/");
+    });
   });
 
   it("shows and refreshes a QR token, then completes QR login", async () => {
@@ -34,7 +38,7 @@ describe("Telegram desktop flows", () => {
     await browser.waitUntil(async () => /Expires in 01:/.test(await $(".qr-expiry").getText()));
 
     await command("authorize_qr");
-    await $("h1=Telegram connected").waitForDisplayed();
+    await $("h1=Products").waitForDisplayed();
   });
 
   it("signs in with a phone code", async () => {
@@ -46,7 +50,7 @@ describe("Telegram desktop flows", () => {
     await $("#verification-code").setValue("12345");
     await $("button=Verify code").click();
 
-    await $("h1=Telegram connected").waitForDisplayed();
+    await $("h1=Products").waitForDisplayed();
   });
 
   it("handles the password challenge", async () => {
@@ -62,7 +66,7 @@ describe("Telegram desktop flows", () => {
 
     await $("#password").setValue("secret");
     await $("button=Continue").click();
-    await $("h1=Telegram connected").waitForDisplayed();
+    await $("h1=Products").waitForDisplayed();
   });
 
   it("handles a password challenge after QR login", async () => {
@@ -75,7 +79,7 @@ describe("Telegram desktop flows", () => {
 
     await $("#password").setValue("secret");
     await $("button=Continue").click();
-    await $("h1=Telegram connected").waitForDisplayed();
+    await $("h1=Products").waitForDisplayed();
   });
 
   it("returns to phone entry when changing the number", async () => {
@@ -96,17 +100,63 @@ describe("Telegram desktop flows", () => {
     await choosePhone();
     await $("button=Send login code").click();
 
-    await $("h1=Telegram connected").waitForDisplayed();
-    await $("p=Signed in as Pedro").waitForDisplayed();
+    await $("h1=Products").waitForDisplayed();
+    await $("strong=Pedro").waitForDisplayed();
   });
 
-  it("restores a session and disconnects", async () => {
+  it("restores a session and signs out from the profile menu", async () => {
     await setUp({ authorized: true });
 
-    await $("p=Signed in as Pedro").waitForDisplayed();
+    await $("strong=Pedro").waitForDisplayed();
 
-    await $("button=Disconnect Telegram").click();
+    await $(".app-profile").click();
+    await $("button=Sign out").click();
     await $("h1=Authorize Telegram").waitForDisplayed();
+  });
+
+  it("opens Products through a loading screen without flashing login for a saved session", async () => {
+    await browser.execute(() => {
+      const startup = { sawLoading: false, sawLogin: false };
+      const observer = new MutationObserver((records) => {
+        for (const record of records) {
+          for (const node of Array.from(record.addedNodes)) {
+            if (!(node instanceof Element)) continue;
+
+            if (node.matches(".session-loading") || node.querySelector(".session-loading")) {
+              startup.sawLoading = true;
+            }
+
+            if (node.matches(".auth-heading") || node.querySelector(".auth-heading")) {
+              startup.sawLogin = true;
+            }
+          }
+        }
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+      Object.assign(window, { startupObservation: startup, startupObserver: observer });
+    });
+
+    await setUp({ authorized: true });
+    await $("h1=Products").waitForDisplayed();
+
+    const observation = await browser.execute(() => {
+      const observed = window as Window & {
+        startupObservation?: { sawLoading: boolean; sawLogin: boolean };
+        startupObserver?: MutationObserver;
+      };
+      if (!observed.startupObserver || !observed.startupObservation) {
+        throw new Error("Startup observation is missing");
+      }
+
+      observed.startupObserver.disconnect();
+
+      return observed.startupObservation;
+    });
+
+    assert.equal(observation.sawLoading, true);
+    assert.equal(observation.sawLogin, false);
+    assert.equal(await $(".qr-frame").isExisting(), false);
   });
 
   it("shows a failed session lookup and still offers login", async () => {
@@ -268,16 +318,17 @@ describe("Telegram desktop flows", () => {
     await $("#verification-code").waitForDisplayed();
   });
 
-  it("keeps the connected page after a logout failure", async () => {
+  it("keeps Products after a sign-out failure", async () => {
     await setUp({ authorized: true, signOutError: "Could not disconnect" });
 
-    await $("button=Disconnect Telegram").click();
+    await $(".app-profile").click();
+    await $("button=Sign out").click();
     await $("[role=alert]").waitForDisplayed();
     assert.equal(
       await $("[role=alert]").getText(),
       "Could not reach Telegram. Check your connection and try again.",
     );
-    await $("h1=Telegram connected").waitForDisplayed();
+    await $("h1=Products").waitForDisplayed();
   });
 });
 

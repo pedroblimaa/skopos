@@ -4,6 +4,7 @@ import { Card } from "../../components/Card/Card";
 import { FormField } from "../../components/FormField/FormField";
 import { QrDisplay } from "../../components/QrDisplay/QrDisplay";
 import { Tabs } from "../../components/Tabs/Tabs";
+import { SessionLoading } from "../../components/SessionLoading/SessionLoading";
 import { VerificationCodeInput } from "../../components/VerificationCodeInput/VerificationCodeInput";
 import { useTelegramLogin, type LoginMethod } from "./useTelegramLogin";
 import "./LoginPage.css";
@@ -20,6 +21,7 @@ export function LoginPage() {
     delivery,
     codeLength,
     error,
+    isRestoringSession,
     busy,
     setPhone,
     setCode,
@@ -31,6 +33,14 @@ export function LoginPage() {
     submitCode,
     submitPassword,
   } = useTelegramLogin();
+
+  if (isRestoringSession) {
+    return (
+      <main className="auth-page">
+        <SessionLoading label="Restoring your session…" />
+      </main>
+    );
+  }
 
   return (
     <main className="auth-page">
