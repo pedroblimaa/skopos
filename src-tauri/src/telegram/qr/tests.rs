@@ -1,4 +1,5 @@
 use super::super::protocol::{export_qr_with, QrSender};
+use crate::app_message::AppMessage;
 use crate::telegram::error::AuthResult;
 use grammers_client::tl;
 use std::{collections::VecDeque, sync::Mutex, time::Duration};
@@ -81,8 +82,8 @@ impl QrEvents for FakeEvents {
         self.0.lock().unwrap().push(format!("password:{hint:?}"));
     }
 
-    fn error(&self, message: String) {
-        self.0.lock().unwrap().push(format!("error:{message}"));
+    fn error(&self, message: AppMessage) {
+        self.0.lock().unwrap().push(format!("error:{message:?}"));
     }
 }
 
@@ -148,7 +149,7 @@ async fn reports_export_and_password_lookup_failures() {
 
     run_qr_login(&state, &api, &events, generation).await;
 
-    assert!(events.names()[0].contains("local Telegram session"));
+    assert!(events.names()[0] == "error:AuthStorage");
     assert!(matches!(state.login.lock().await.step, LoginStep::Idle));
 
     let generation = qr_generation(&state).await;
@@ -158,7 +159,7 @@ async fn reports_export_and_password_lookup_failures() {
 
     run_qr_login(&state, &api, &events, generation).await;
 
-    assert!(events.names()[0].contains("reach Telegram"));
+    assert!(events.names()[0] == "error:AuthNetwork");
     assert!(matches!(state.login.lock().await.step, LoginStep::Idle));
 }
 
@@ -172,7 +173,7 @@ async fn rejects_incomplete_authorization_and_stale_generation() {
 
     complete_qr_login(&state, &api, &events, generation).await;
 
-    assert!(events.names()[0].contains("did not finish QR login"));
+    assert!(events.names()[0] == "error:QrLoginIncomplete");
 
     let stale = generation;
     let _current = qr_generation(&state).await;
@@ -194,7 +195,7 @@ async fn reports_status_failure_and_ignores_stale_password() {
 
     complete_qr_login(&state, &api, &events, generation).await;
 
-    assert!(events.names()[0].contains("local Telegram session"));
+    assert!(events.names()[0] == "error:AuthStorage");
 
     let stale = generation;
     let _current = qr_generation(&state).await;
@@ -294,22 +295,26 @@ async fn reports_qr_export_and_migration_failures() {
     let mut sender = FakeSender::new(wire_migration());
     sender.storage_error = true;
 
-    assert!(export_qr_with(&sender, 1, "hash")
-        .await
-        .err()
-        .unwrap()
-        .message()
-        .contains("local Telegram session"));
+    assert_eq!(
+        export_qr_with(&sender, 1, "hash")
+            .await
+            .err()
+            .unwrap()
+            .message(),
+        AppMessage::AuthStorage
+    );
 
     let sender = FakeSender::new(wire_migration());
     *sender.import.lock().unwrap() = Some(Ok(wire_migration()));
 
-    assert!(export_qr_with(&sender, 1, "hash")
-        .await
-        .err()
-        .unwrap()
-        .message()
-        .contains("QR migration"));
+    assert_eq!(
+        export_qr_with(&sender, 1, "hash")
+            .await
+            .err()
+            .unwrap()
+            .message(),
+        AppMessage::QrMigrationFailed
+    );
 }
 
 #[tokio::test]

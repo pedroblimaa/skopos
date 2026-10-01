@@ -2,6 +2,7 @@ use super::{
     adapter::{PhoneRequestApi, PhoneRequestOutcome, PhoneSignInApi, SignInOutcome},
     CodeRequest,
 };
+use crate::app_message::AppMessage;
 use crate::telegram::{
     client::SessionStatus,
     error::{AuthError, AuthResult},
@@ -73,15 +74,11 @@ pub(super) async fn request_phone_code<A: PhoneRequestApi, E: AuthEvents>(
         }
         PhoneRequestOutcome::EmailSetupRequired => {
             login.step = LoginStep::Idle;
-            Err(AuthError::Message(
-                "Telegram requires email setup. Complete it in an official Telegram app first.",
-            ))
+            Err(AuthError::Message(AppMessage::EmailSetupRequired))
         }
         PhoneRequestOutcome::PaymentRequired => {
             login.step = LoginStep::Idle;
-            Err(AuthError::Message(
-                "Telegram requires an additional login step that Skopos cannot complete.",
-            ))
+            Err(AuthError::Message(AppMessage::AdditionalLoginStep))
         }
     }
 }
@@ -93,7 +90,7 @@ pub(super) async fn submit_phone_code<A: PhoneSignInApi, E: AuthEvents>(
     code: String,
 ) -> AuthResult<LoginResult> {
     if code.trim().is_empty() {
-        return Err(AuthError::Message("Enter the verification code."));
+        return Err(AuthError::Message(AppMessage::MissingCode));
     }
 
     let (generation, phone, hash) = {
@@ -118,9 +115,7 @@ pub(super) async fn submit_phone_code<A: PhoneSignInApi, E: AuthEvents>(
         }
         Ok(SignInOutcome::SignUpRequired) => {
             restore_phone(state, generation, phone, hash).await;
-            Err(AuthError::Message(
-                "This number needs a Telegram account. Sign up in the official app first.",
-            ))
+            Err(AuthError::Message(AppMessage::SignUpRequired))
         }
         Err(error) if error.is("SESSION_PASSWORD_NEEDED") => {
             require_password(state, api, generation).await
@@ -173,7 +168,7 @@ pub(super) async fn submit_password<A: PhoneSignInApi, E: AuthEvents>(
             }
 
             login.step = LoginStep::Password(Box::new(token));
-            Err(AuthError::Message("That password is incorrect. Try again."))
+            Err(AuthError::Message(AppMessage::IncorrectPassword))
         }
         Err(error) => {
             let current = state
@@ -188,9 +183,7 @@ pub(super) async fn submit_password<A: PhoneSignInApi, E: AuthEvents>(
 
             Err(match error {
                 SignInError::Other(reason) => AuthError::from(reason),
-                _ => AuthError::Message(
-                    "Could not complete two-step verification. Start Telegram login again.",
-                ),
+                _ => AuthError::Message(AppMessage::PasswordVerificationFailed),
             })
         }
     }
@@ -233,9 +226,7 @@ async fn complete_authorization<E: AuthEvents>(
 
     let status = result?;
     if !status.authorized() {
-        return Err(AuthError::Message(
-            "Telegram did not finish login. Start again.",
-        ));
+        return Err(AuthError::Message(AppMessage::LoginIncomplete));
     }
 
     events.authenticated(&status);
@@ -281,9 +272,7 @@ pub(super) fn validate_phone(phone: &str) -> AuthResult<()> {
     {
         Ok(())
     } else {
-        Err(AuthError::Message(
-            "Enter a phone number in international format, such as +5511999999999.",
-        ))
+        Err(AuthError::Message(AppMessage::InternationalPhoneRequired))
     }
 }
 

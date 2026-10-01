@@ -1,10 +1,11 @@
 use super::repository::{CreateWatch, Watch, WatchRepository};
+use crate::app_message::AppMessage;
 use tauri::AppHandle;
 #[cfg(not(feature = "e2e"))]
 use tauri::Manager;
 
 #[tauri::command]
-pub async fn create_watch(app: AppHandle, input: CreateWatch) -> Result<Watch, String> {
+pub async fn create_watch(app: AppHandle, input: CreateWatch) -> Result<Watch, AppMessage> {
     let repository = repository(&app)?;
     repository
         .create(input)
@@ -13,13 +14,17 @@ pub async fn create_watch(app: AppHandle, input: CreateWatch) -> Result<Watch, S
 }
 
 #[tauri::command]
-pub async fn list_watches(app: AppHandle) -> Result<Vec<Watch>, String> {
+pub async fn list_watches(app: AppHandle) -> Result<Vec<Watch>, AppMessage> {
     let repository = repository(&app)?;
     repository.list().await.map_err(|error| error.message())
 }
 
 #[tauri::command]
-pub async fn update_watch(app: AppHandle, id: i64, input: CreateWatch) -> Result<Watch, String> {
+pub async fn update_watch(
+    app: AppHandle,
+    id: i64,
+    input: CreateWatch,
+) -> Result<Watch, AppMessage> {
     repository(&app)?
         .update(id, input)
         .await
@@ -27,14 +32,14 @@ pub async fn update_watch(app: AppHandle, id: i64, input: CreateWatch) -> Result
 }
 
 #[tauri::command]
-pub async fn delete_watch(app: AppHandle, id: i64) -> Result<(), String> {
+pub async fn delete_watch(app: AppHandle, id: i64) -> Result<(), AppMessage> {
     repository(&app)?
         .delete(id)
         .await
         .map_err(|error| error.message())
 }
 
-fn repository(app: &AppHandle) -> Result<WatchRepository, String> {
+fn repository(app: &AppHandle) -> Result<WatchRepository, AppMessage> {
     #[cfg(feature = "e2e")]
     let directory = std::env::temp_dir().join(format!("skopos-e2e-{}", std::process::id()));
 
@@ -42,12 +47,11 @@ fn repository(app: &AppHandle) -> Result<WatchRepository, String> {
     let directory = app
         .path()
         .app_local_data_dir()
-        .map_err(|_| "Could not open local watch storage".to_owned())?;
+        .map_err(|_| AppMessage::WatchStorageOpen)?;
 
     #[cfg(feature = "e2e")]
     let _ = app;
 
-    std::fs::create_dir_all(&directory)
-        .map_err(|_| "Could not open local watch storage".to_owned())?;
+    std::fs::create_dir_all(&directory).map_err(|_| AppMessage::WatchStorageOpen)?;
     Ok(WatchRepository::new(directory.join("watches.sqlite")))
 }

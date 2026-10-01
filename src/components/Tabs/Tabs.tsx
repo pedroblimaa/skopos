@@ -8,18 +8,20 @@ export interface Tab<T extends string> {
 }
 
 export function Tabs<T extends string>({
+  label,
   tabs,
   active,
   onChange,
   disabled = false,
 }: {
+  label: string;
   tabs: Tab<T>[];
   active: T;
   onChange: (id: T) => void;
   disabled?: boolean;
 }) {
   return (
-    <div className="tabs" role="tablist" aria-label="Login method">
+    <div className="tabs" role="tablist" aria-label={label}>
       {tabs.map(({ id, label, icon }) => (
         <button
           key={id}

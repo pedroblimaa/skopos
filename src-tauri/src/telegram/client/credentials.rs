@@ -1,3 +1,4 @@
+use crate::app_message::AppMessage;
 use crate::telegram::error::{AuthError, AuthResult};
 
 pub(in crate::telegram) fn credentials() -> AuthResult<(i32, &'static str)> {
@@ -13,17 +14,14 @@ pub(super) fn parse_credentials<'a>(
     id: Option<&str>,
     hash: Option<&'a str>,
 ) -> AuthResult<(i32, &'a str)> {
-    const MISSING: &str =
-        "Telegram API credentials are missing. Set TG_ID and TG_HASH in .env, then rebuild Skopos.";
-
     let id = id
         .filter(|value| !value.is_empty())
-        .ok_or(AuthError::Message(MISSING))?
+        .ok_or(AuthError::Message(AppMessage::MissingCredentials))?
         .parse::<i32>()
-        .map_err(|_| AuthError::Message("The configured Telegram API ID is invalid."))?;
+        .map_err(|_| AuthError::Message(AppMessage::InvalidApiId))?;
     let hash = hash
         .filter(|value| !value.is_empty())
-        .ok_or(AuthError::Message(MISSING))?;
+        .ok_or(AuthError::Message(AppMessage::MissingCredentials))?;
 
     Ok((id, hash))
 }

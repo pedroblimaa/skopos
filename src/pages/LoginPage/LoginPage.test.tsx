@@ -1,4 +1,6 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import type { AppMessage } from "../../app-message";
+import { render } from "../../test-setup";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { LoginPage } from "./LoginPage";
@@ -16,7 +18,7 @@ const auth = vi.hoisted(() => ({
   onQr: vi.fn<(callback: (token: QrToken) => void) => Promise<() => void>>(),
   onAuthenticated: vi.fn<(callback: (status: SessionStatus) => void) => Promise<() => void>>(),
   onPasswordRequired: vi.fn<(callback: (hint: string | null) => void) => Promise<() => void>>(),
-  onError: vi.fn<(callback: (message: string) => void) => Promise<() => void>>(),
+  onError: vi.fn<(callback: (message: AppMessage) => void) => Promise<() => void>>(),
 }));
 
 vi.mock("../../telegram", async (importOriginal) => ({
@@ -32,7 +34,7 @@ beforeEach(() => {
   auth.stopQr.mockResolvedValue(undefined);
   auth.requestCode.mockResolvedValue({
     step: "codeSent",
-    message: "Check Telegram for your code.",
+    message: { code: "deliveryApp" },
     length: 5,
   });
   auth.submitCode.mockResolvedValue({
@@ -86,10 +88,10 @@ describe("LoginPage", () => {
 
     act(() => {
       auth.onQr.mock.calls[0][0]({ url: "tg://login?token=test", expiresAt: 123 });
-      auth.onError.mock.calls[0][0]("Connection lost");
+      auth.onError.mock.calls[0][0]({ code: "authNetwork" });
       auth.onAuthenticated.mock.calls[0][0]({ authorized: false, displayName: null });
     });
-    expect(screen.getByRole("alert")).toHaveTextContent("Connection lost");
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not reach Telegram");
 
     act(() => {
       auth.onAuthenticated.mock.calls[0][0]({ authorized: true, displayName: "Pedro" });
@@ -100,10 +102,12 @@ describe("LoginPage", () => {
   it("cleans up a partial subscription once when registration fails", async () => {
     const stopQr = vi.fn();
     auth.onQr.mockResolvedValueOnce(stopQr);
-    auth.onAuthenticated.mockRejectedValueOnce(new Error("Subscription failed"));
+    auth.onAuthenticated.mockRejectedValueOnce({ code: "authNetwork" });
 
     const { unmount } = renderLogin();
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Subscription failed"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Could not reach Telegram"),
+    );
     expect(stopQr).toHaveBeenCalledTimes(1);
     expect(auth.onPasswordRequired).not.toHaveBeenCalled();
     expect(auth.startQr).not.toHaveBeenCalled();
@@ -165,10 +169,12 @@ describe("LoginPage", () => {
   );
 
   it("shows a QR error and retries", async () => {
-    auth.startQr.mockRejectedValueOnce(new Error("Offline"));
+    auth.startQr.mockRejectedValueOnce({ code: "authNetwork" });
 
     renderLogin();
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Offline"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Could not reach Telegram"),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => {
@@ -177,17 +183,21 @@ describe("LoginPage", () => {
   });
 
   it("shows a session lookup failure and still offers login", async () => {
-    auth.status.mockRejectedValueOnce(new Error("Session unavailable"));
+    auth.status.mockRejectedValueOnce({ code: "authStorage" });
 
     renderLogin();
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Session unavailable"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent(
+        "Could not access the local Telegram session",
+      ),
+    );
     await waitFor(() => {
       expect(auth.startQr).toHaveBeenCalled();
     });
   });
 
   it("keeps the phone form after code request failure", async () => {
-    auth.requestCode.mockRejectedValueOnce(new Error("Rate limited"));
+    auth.requestCode.mockRejectedValueOnce({ code: "floodWait" });
 
     renderLogin();
 
@@ -197,7 +207,9 @@ describe("LoginPage", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: "Send login code" }));
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Rate limited"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Telegram is limiting login attempts"),
+    );
     expect(screen.getByLabelText("Account mobile number")).toBeInTheDocument();
     expect(auth.requestCode).toHaveBeenCalledWith("+5511999999999");
   });
@@ -294,7 +306,7 @@ describe("LoginPage", () => {
 
   it("returns to phone entry when a verification code expires", async () => {
     auth.submitCode.mockRejectedValueOnce({
-      message: "This code expired. Request a new one.",
+      message: { code: "codeExpired" },
       canRetryCode: false,
     });
 
@@ -323,7 +335,7 @@ describe("LoginPage", () => {
 
   it("returns to phone entry when session verification fails after code submission", async () => {
     auth.submitCode.mockRejectedValueOnce({
-      message: "Could not reach Telegram. Check your connection and try again.",
+      message: { code: "authNetwork" },
       canRetryCode: false,
     });
 
@@ -348,7 +360,7 @@ describe("LoginPage", () => {
 
   it("keeps code entry when the submitted code is invalid", async () => {
     auth.submitCode.mockRejectedValueOnce({
-      message: "That verification code is invalid. Check it and try again.",
+      message: { code: "invalidCode" },
       canRetryCode: true,
     });
 
@@ -373,9 +385,7 @@ describe("LoginPage", () => {
 
   it("restarts login after a password request fails", async () => {
     auth.submitCode.mockResolvedValueOnce({ step: "passwordRequired", hint: null });
-    auth.submitPassword.mockRejectedValueOnce(
-      "Could not reach Telegram. Check your connection and try again.",
-    );
+    auth.submitPassword.mockRejectedValueOnce({ code: "authNetwork" });
 
     renderLogin();
     fireEvent.click(await screen.findByRole("tab", { name: "Phone Number" }));

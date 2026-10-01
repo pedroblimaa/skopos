@@ -1,4 +1,5 @@
 use super::{credentials::parse_credentials, status_for};
+use crate::app_message::AppMessage;
 use crate::telegram::e2e::test_context;
 use grammers_session::storages::SqliteSession;
 
@@ -10,16 +11,18 @@ fn credentials_require_both_values_and_a_numeric_id() {
         (Some("1"), None),
         (Some("1"), Some("")),
     ] {
-        assert!(parse_credentials(id, hash)
-            .unwrap_err()
-            .message()
-            .contains("missing"));
+        assert_eq!(
+            parse_credentials(id, hash).unwrap_err().message(),
+            AppMessage::MissingCredentials
+        );
     }
 
-    assert!(parse_credentials(Some("wrong"), Some("hash"))
-        .unwrap_err()
-        .message()
-        .contains("invalid"));
+    assert_eq!(
+        parse_credentials(Some("wrong"), Some("hash"))
+            .unwrap_err()
+            .message(),
+        AppMessage::InvalidApiId
+    );
     assert_eq!(
         parse_credentials(Some("1"), Some("hash")).unwrap(),
         (1, "hash")

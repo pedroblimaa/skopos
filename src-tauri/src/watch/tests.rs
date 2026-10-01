@@ -1,4 +1,5 @@
 use super::repository::{CreateWatch, WatchError, WatchRepository};
+use crate::app_message::AppMessage;
 
 fn test_path(name: &str) -> std::path::PathBuf {
     let id = std::time::SystemTime::now()
@@ -61,12 +62,9 @@ async fn rejects_invalid_inputs_before_opening_storage() {
     }
     assert_eq!(
         WatchError::InvalidPhrase.message(),
-        "Enter every search phrase before saving"
+        AppMessage::InvalidPhrase
     );
-    assert_eq!(
-        WatchError::InvalidPrice.message(),
-        "Enter a valid price greater than zero"
-    );
+    assert_eq!(WatchError::InvalidPrice.message(), AppMessage::InvalidPrice);
 }
 
 #[tokio::test]
@@ -82,10 +80,7 @@ async fn reports_storage_failures_without_exposing_database_errors() {
             .await,
         Err(WatchError::Storage)
     ));
-    assert_eq!(
-        WatchError::Storage.message(),
-        "Could not save or load products on this device"
-    );
+    assert_eq!(WatchError::Storage.message(), AppMessage::WatchStorage);
 }
 
 #[tokio::test]
@@ -214,10 +209,7 @@ async fn deletion_persists_and_updating_a_deleted_product_reports_not_found() {
             .await,
         Err(WatchError::NotFound)
     ));
-    assert_eq!(
-        WatchError::NotFound.message(),
-        "This product no longer exists"
-    );
+    assert_eq!(WatchError::NotFound.message(), AppMessage::ProductNotFound);
     std::fs::remove_file(path).unwrap();
 }
 

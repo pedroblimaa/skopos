@@ -1,3 +1,4 @@
+use crate::app_message::AppMessage;
 use std::{collections::VecDeque, sync::Mutex};
 
 use grammers_client::{client::PasswordToken, sender::RpcError, tl, InvocationError, SignInError};
@@ -64,7 +65,7 @@ fn phone_requires_international_digits() {
 async fn phone_request_saves_code_step() {
     let api = FakeApi::new(Ok(PhoneRequestOutcome::Code {
         delivery: CodeRequest::CodeSent {
-            message: "Check Telegram".into(),
+            message: AppMessage::DeliveryApp,
             length: Some(5),
         },
         hash: "hash".into(),
@@ -93,48 +94,48 @@ async fn phone_request_can_authorize_immediately() {
 #[tokio::test]
 async fn phone_request_reports_unsupported_telegram_steps() {
     for (outcome, expected) in [
-        (PhoneRequestOutcome::EmailSetupRequired, "email setup"),
+        (
+            PhoneRequestOutcome::EmailSetupRequired,
+            AppMessage::EmailSetupRequired,
+        ),
         (
             PhoneRequestOutcome::PaymentRequired,
-            "additional login step",
+            AppMessage::AdditionalLoginStep,
         ),
     ] {
         let api = FakeApi::new(Ok(outcome));
 
-        assert!(request(&api, "+5511999999999")
-            .await
-            .unwrap_err()
-            .message()
-            .contains(expected));
+        assert_eq!(
+            request(&api, "+5511999999999").await.unwrap_err().message(),
+            expected
+        );
     }
 }
 
 #[tokio::test]
 async fn phone_request_reports_network_and_status_failures() {
-    let api = FakeApi::new(Err(AuthError::Message("Network unavailable")));
+    let api = FakeApi::new(Err(AuthError::Message(AppMessage::AuthNetwork)));
 
     assert_eq!(
         request(&api, "+5511999999999").await.unwrap_err().message(),
-        "Network unavailable"
+        AppMessage::AuthNetwork
     );
 
     let api = FakeApi::new(Ok(PhoneRequestOutcome::Authorized));
     *api.status.lock().unwrap() = Some(Err(AuthError::Storage));
 
-    assert!(request(&api, "+5511999999999")
-        .await
-        .unwrap_err()
-        .message()
-        .contains("local Telegram session"));
+    assert_eq!(
+        request(&api, "+5511999999999").await.unwrap_err().message(),
+        AppMessage::AuthStorage
+    );
 
     let api = FakeApi::new(Ok(PhoneRequestOutcome::Authorized));
     *api.status.lock().unwrap() = Some(Ok(SessionStatus::signed_out()));
 
-    assert!(request(&api, "+5511999999999")
-        .await
-        .unwrap_err()
-        .message()
-        .contains("did not finish login"));
+    assert_eq!(
+        request(&api, "+5511999999999").await.unwrap_err().message(),
+        AppMessage::LoginIncomplete
+    );
 }
 
 fn rpc(name: &str) -> InvocationError {
@@ -240,20 +241,22 @@ async fn code_submission_authorizes_and_resets_state() {
 
 #[tokio::test]
 async fn invalid_code_preserves_step_but_expired_code_resets_it() {
-    for (error, expected_step) in [
-        ("PHONE_CODE_INVALID", "phone"),
-        ("PHONE_CODE_EMPTY", "phone"),
-        ("PHONE_CODE_EXPIRED", "idle"),
+    for (error, expected_step, expected_message) in [
+        ("PHONE_CODE_INVALID", "phone", AppMessage::InvalidCode),
+        ("PHONE_CODE_EMPTY", "phone", AppMessage::InvalidCode),
+        ("PHONE_CODE_EXPIRED", "idle", AppMessage::CodeExpired),
     ] {
         let state = phone_state().await;
         let api = FakeSignInApi::new(Err(rpc(error)));
 
-        assert!(submit_phone_code(&state, &api, &FakeEvents, "12345".into())
-            .await
-            .err()
-            .unwrap()
-            .message()
-            .contains("code"));
+        assert_eq!(
+            submit_phone_code(&state, &api, &FakeEvents, "12345".into())
+                .await
+                .err()
+                .unwrap()
+                .message(),
+            expected_message
+        );
 
         let step = &state.login.lock().await.step;
         assert_eq!(
@@ -307,7 +310,7 @@ async fn code_submission_handles_password_challenge_and_retry() {
         .unwrap()
         .message();
 
-    assert!(error.contains("incorrect"));
+    assert_eq!(error, AppMessage::IncorrectPassword);
     assert!(matches!(
         state.login.lock().await.step,
         LoginStep::Password(_)
@@ -339,24 +342,30 @@ async fn code_and_password_require_the_correct_step() {
     let state = AuthState::default();
     let api = FakeSignInApi::new(Ok(SignInOutcome::Authorized));
 
-    assert!(submit_phone_code(&state, &api, &FakeEvents, "  ".into())
-        .await
-        .err()
-        .unwrap()
-        .message()
-        .contains("Enter the verification code"));
-    assert!(submit_phone_code(&state, &api, &FakeEvents, "12345".into())
-        .await
-        .err()
-        .unwrap()
-        .message()
-        .contains("Request a login code"));
-    assert!(submit_password(&state, &api, &FakeEvents, "secret".into())
-        .await
-        .err()
-        .unwrap()
-        .message()
-        .contains("Start Telegram login again"));
+    assert_eq!(
+        submit_phone_code(&state, &api, &FakeEvents, "  ".into())
+            .await
+            .err()
+            .unwrap()
+            .message(),
+        AppMessage::MissingCode
+    );
+    assert_eq!(
+        submit_phone_code(&state, &api, &FakeEvents, "12345".into())
+            .await
+            .err()
+            .unwrap()
+            .message(),
+        AppMessage::RequestCodeFirst
+    );
+    assert_eq!(
+        submit_password(&state, &api, &FakeEvents, "secret".into())
+            .await
+            .err()
+            .unwrap()
+            .message(),
+        AppMessage::RestartLogin
+    );
 }
 
 #[tokio::test]
@@ -519,7 +528,7 @@ async fn phone_request_cannot_commit_after_another_login_replaces_it() {
             replace_attempt(&state, &gate)
         );
 
-        assert!(result.err().unwrap().message().contains("replaced"));
+        assert_eq!(result.err().unwrap().message(), AppMessage::AuthCancelled);
         assert!(matches!(state.login.lock().await.step, LoginStep::Qr));
     }
 }
@@ -546,7 +555,7 @@ async fn code_submission_cannot_commit_a_stale_response_or_password_token() {
             replace_attempt(&state, &gate)
         );
 
-        assert!(result.err().unwrap().message().contains("replaced"));
+        assert_eq!(result.err().unwrap().message(), AppMessage::AuthCancelled);
         assert!(matches!(state.login.lock().await.step, LoginStep::Qr));
     }
 }
@@ -593,10 +602,10 @@ async fn password_failure_resets_the_step_and_stale_failures_preserve_new_login(
             };
 
             if cancelled {
-                assert!(error.contains("replaced"));
+                assert_eq!(error, AppMessage::AuthCancelled);
                 assert!(matches!(state.login.lock().await.step, LoginStep::Qr));
             } else if kind == "invalid" {
-                assert!(error.contains("incorrect"));
+                assert_eq!(error, AppMessage::IncorrectPassword);
                 assert!(matches!(
                     state.login.lock().await.step,
                     LoginStep::Password(_)

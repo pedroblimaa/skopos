@@ -1,4 +1,5 @@
-import { act, render, screen } from "@testing-library/react";
+import { render } from "../../test-setup";
+import { act, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { QrDisplay } from "./QrDisplay";
 

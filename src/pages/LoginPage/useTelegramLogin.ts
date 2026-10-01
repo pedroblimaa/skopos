@@ -1,12 +1,7 @@
 import { useEffect, useState, type SyntheticEvent } from "react";
 import { useNavigate } from "react-router-dom";
-import {
-  errorMessage,
-  isCodeSubmissionError,
-  telegram,
-  type LoginResult,
-  type QrToken,
-} from "../../telegram";
+import { isCodeSubmissionError, telegram, type LoginResult, type QrToken } from "../../telegram";
+import { appError, type AppMessage } from "../../app-message";
 
 export type LoginMethod = "qr" | "phone";
 type Step = "phone" | "code" | "password";
@@ -20,9 +15,9 @@ export function useTelegramLogin() {
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [hint, setHint] = useState<string | null>(null);
-  const [delivery, setDelivery] = useState("");
+  const [delivery, setDelivery] = useState<AppMessage | null>(null);
   const [codeLength, setCodeLength] = useState<number | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState<AppMessage | null>(null);
   const [isBusy, setIsBusy] = useState(false);
   const [isSessionChecked, setIsSessionChecked] = useState(false);
   const [isSubscribed, setIsSubscribed] = useState(false);
@@ -40,7 +35,7 @@ export function useTelegramLogin() {
         else setIsSessionChecked(true);
       } catch (reason) {
         if (active) {
-          setError(errorMessage(reason));
+          setError(appError(reason));
           setIsSessionChecked(true);
         }
       }
@@ -106,7 +101,7 @@ export function useTelegramLogin() {
 
         if (active) setIsSubscribed(true);
       } catch (reason) {
-        if (active) setError(errorMessage(reason));
+        if (active) setError(appError(reason));
 
         cleanup();
       }
@@ -126,7 +121,7 @@ export function useTelegramLogin() {
       try {
         await telegram.startQr();
       } catch (reason) {
-        if (active) setError(errorMessage(reason));
+        if (active) setError(appError(reason));
       }
     }
 
@@ -142,7 +137,7 @@ export function useTelegramLogin() {
     if (next === method) return;
 
     setMethod(next);
-    setError("");
+    setError(null);
     setQr(null);
     setStep("phone");
     setCode("");
@@ -152,17 +147,17 @@ export function useTelegramLogin() {
   function changePhone() {
     setCode("");
     setStep("phone");
-    setError("");
+    setError(null);
   }
 
   async function retryQr() {
-    setError("");
+    setError(null);
     setQr(null);
 
     try {
       await telegram.startQr();
     } catch (reason) {
-      setError(errorMessage(reason));
+      setError(appError(reason));
     }
   }
 
@@ -204,7 +199,7 @@ export function useTelegramLogin() {
         handleResult(await telegram.submitPassword(password));
       },
       (reason) => {
-        if (errorMessage(reason) !== "That password is incorrect. Try again.") {
+        if (appError(reason).code !== "incorrectPassword") {
           setHint(null);
           setStep("phone");
         }
@@ -229,13 +224,13 @@ export function useTelegramLogin() {
     event.preventDefault();
 
     setIsBusy(true);
-    setError("");
+    setError(null);
 
     try {
       await action();
     } catch (reason) {
       onError?.(reason);
-      setError(errorMessage(reason));
+      setError(appError(reason));
     } finally {
       setIsBusy(false);
     }

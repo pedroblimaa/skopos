@@ -1,3 +1,4 @@
+use crate::app_message::AppMessage;
 use crate::telegram::{
     client::{credentials, ClientContext},
     error::{AuthError, AuthResult},
@@ -47,9 +48,10 @@ pub(super) async fn send_code_with<A: CodeSender>(
 
     match api.invoke(&request).await {
         Err(InvocationError::Rpc(error)) if error.code == 303 => {
-            let dc = error.value.ok_or(AuthError::Message(
-                "Telegram did not provide a new data center.",
-            ))? as i32;
+            let dc = error
+                .value
+                .ok_or(AuthError::Message(AppMessage::MissingDataCenter))?
+                as i32;
             api.set_home_dc(dc).await?;
             Ok(api.invoke(&request).await?)
         }

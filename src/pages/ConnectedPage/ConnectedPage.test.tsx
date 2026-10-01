@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render } from "../../test-setup";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ConnectedPage } from "./ConnectedPage";
@@ -7,7 +8,6 @@ import type { Watch } from "../../watch.model";
 const api = vi.hoisted(() => ({ listWatches: vi.fn(), deleteWatch: vi.fn() }));
 vi.mock("../../telegram", () => ({
   telegram: api,
-  errorMessage: (error: unknown) => String(error),
 }));
 const products: Watch[] = [
   { id: 1, phrases: ["Laptop Vivobook S14", "Asus Vivobook 14"], maxPriceCents: 350000 },
@@ -63,11 +63,11 @@ describe("Products", () => {
   );
 
   it("reports a loading failure", async () => {
-    api.listWatches.mockRejectedValue(new Error("Storage unavailable"));
+    api.listWatches.mockRejectedValue({ code: "watchStorage" });
 
     renderPage();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Storage unavailable");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not save or load products");
     expect(screen.queryByText("What are you looking for?")).not.toBeInTheDocument();
   });
 
@@ -116,13 +116,13 @@ describe("Products", () => {
   });
 
   it("preserves products after delete failure and allows retry", async () => {
-    api.deleteWatch.mockRejectedValueOnce(new Error("Disk busy"));
+    api.deleteWatch.mockRejectedValueOnce({ code: "watchStorage" });
 
     renderPage();
     fireEvent.click(await screen.findByRole("button", { name: "Delete RTX 5070" }));
     fireEvent.click(screen.getByRole("button", { name: "Delete product" }));
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Disk busy");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not save or load products");
     expect(screen.getByText("RTX 5070")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Delete product" }));

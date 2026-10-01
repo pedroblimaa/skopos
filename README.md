@@ -33,11 +33,12 @@ Run `pnpm tauri dev` or `pnpm tauri build --no-bundle` after saving `.env`. The 
 ## Quality checks
 
 ```text
-pnpm check
-pnpm tauri build --no-bundle
+pnpm check:local
 ```
 
-The check command runs Prettier, ESLint, TypeScript, Vitest with a 96% line-coverage gate, the frontend production build, Rust formatting, Clippy, Rust tests, and a 96% Rust line-coverage gate combining unit tests with native desktop E2E scenarios. Install `cargo-llvm-cov` 0.9.1 and the Rust `llvm-tools-preview` component to run that gate. `pnpm test:rust:coverage` uses a Node.js runner with no PowerShell or Bash dependency. The runner handles Windows, Linux, and macOS paths; native desktop E2E is currently verified on Windows only. Desktop scenarios use a test-only Telegram API fixture.
+Local handoff uses focused feature tests plus `pnpm check:local` for formatting, lint, types, and frontend unit tests. Full verification remains pending CI, which enforces 96% line coverage for both TypeScript and Rust, runs all desktop scenarios, and verifies the production native build.
+
+`pnpm check` is still available for a complete local frontend/native run. It prints stage durations and supports `--from=<stage>` for explicit resumption. Install `cargo-llvm-cov` 0.9.1 and the Rust `llvm-tools-preview` component for native coverage. `pnpm test:rust:coverage` combines unit and native desktop E2E measurements and supports independent unit, build, E2E, and report stages. Desktop scenarios use a test-only Telegram API fixture and are currently verified on Windows. See [Quality checks and testing](docs/quality-checks.md) for the 10–20 minute local budget, stage commands, and binary/profile reuse requirements.
 
 ## Project layout
 

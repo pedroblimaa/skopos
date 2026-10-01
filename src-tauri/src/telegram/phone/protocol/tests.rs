@@ -1,3 +1,4 @@
+use crate::app_message::AppMessage;
 use grammers_client::tl;
 use serde_json::json;
 
@@ -19,15 +20,15 @@ fn formats_numeric_code_delivery_channels() {
     let examples = [
         (
             SentCodeType::App(types::auth::SentCodeTypeApp { length: 5 }),
-            "Telegram app",
+            json!({ "code": "deliveryApp" }),
         ),
         (
             SentCodeType::Sms(types::auth::SentCodeTypeSms { length: 5 }),
-            "SMS",
+            json!({ "code": "deliverySms" }),
         ),
         (
             SentCodeType::Call(types::auth::SentCodeTypeCall { length: 5 }),
-            "phone call",
+            json!({ "code": "deliveryCall" }),
         ),
         (
             SentCodeType::EmailCode(types::auth::SentCodeTypeEmailCode {
@@ -38,21 +39,21 @@ fn formats_numeric_code_delivery_channels() {
                 reset_available_period: None,
                 reset_pending_date: None,
             }),
-            "p***@example.com",
+            json!({ "code": "deliveryEmail", "params": { "email": "p***@example.com" } }),
         ),
         (
             SentCodeType::FragmentSms(types::auth::SentCodeTypeFragmentSms {
                 url: "https://t.me/code".into(),
                 length: 5,
             }),
-            "https://t.me/code",
+            json!({ "code": "deliveryFragment", "params": { "url": "https://t.me/code" } }),
         ),
         (
             SentCodeType::MissedCall(types::auth::SentCodeTypeMissedCall {
                 prefix: "+55".into(),
                 length: 5,
             }),
-            "+55",
+            json!({ "code": "deliveryMissedCall", "params": { "prefix": "+55" } }),
         ),
         (
             SentCodeType::FirebaseSms(types::auth::SentCodeTypeFirebaseSms {
@@ -63,7 +64,7 @@ fn formats_numeric_code_delivery_channels() {
                 push_timeout: None,
                 length: 5,
             }),
-            "SMS",
+            json!({ "code": "deliverySms" }),
         ),
     ];
 
@@ -74,10 +75,7 @@ fn formats_numeric_code_delivery_channels() {
 
         assert_eq!(value["step"], "codeSent");
         assert_eq!(value["length"], 5);
-        assert!(value["message"]
-            .as_str()
-            .unwrap()
-            .contains(expected_message));
+        assert_eq!(value["message"], expected_message);
     }
 }
 
@@ -96,12 +94,17 @@ fn formats_text_and_external_code_delivery_channels() {
         SentCodeType::SmsPhrase(types::auth::SentCodeTypeSmsPhrase { beginning: None }),
         SentCodeType::SmsWord(types::auth::SentCodeTypeSmsWord { beginning: None }),
     ];
-    for kind in examples {
+    for (kind, code) in examples.into_iter().zip([
+        "deliveryFlashCall",
+        "emailSetupRequired",
+        "deliverySmsPhrase",
+        "deliverySmsPhrase",
+    ]) {
         let value = serde_json::to_value(code_delivery(kind)).unwrap();
 
         assert_eq!(value["step"], "codeSent");
         assert!(value["length"].is_null());
-        assert!(!value["message"].as_str().unwrap().is_empty());
+        assert_eq!(value["message"], json!({ "code": code }));
     }
 }
 
@@ -192,22 +195,26 @@ async fn retries_phone_code_after_data_center_migration() {
 async fn reports_missing_migration_and_storage_failure() {
     let sender = FakeSender::new(vec![Err(migration(None))]);
 
-    assert!(send_code_with(&sender, 1, "hash", "+5511999999999")
-        .await
-        .err()
-        .unwrap()
-        .message()
-        .contains("new data center"));
+    assert_eq!(
+        send_code_with(&sender, 1, "hash", "+5511999999999")
+            .await
+            .err()
+            .unwrap()
+            .message(),
+        AppMessage::MissingDataCenter
+    );
 
     let mut sender = FakeSender::new(vec![Err(migration(Some(4)))]);
     sender.storage_error = true;
 
-    assert!(send_code_with(&sender, 1, "hash", "+5511999999999")
-        .await
-        .err()
-        .unwrap()
-        .message()
-        .contains("local Telegram session"));
+    assert_eq!(
+        send_code_with(&sender, 1, "hash", "+5511999999999")
+            .await
+            .err()
+            .unwrap()
+            .message(),
+        AppMessage::AuthStorage
+    );
 }
 
 #[tokio::test]

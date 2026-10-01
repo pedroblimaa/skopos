@@ -1,4 +1,5 @@
 use super::workflow::{self, SessionEvents};
+use crate::app_message::AppMessage;
 use crate::telegram::{client::SessionStatus, state::AuthState};
 use tauri::{AppHandle, Emitter, State};
 
@@ -6,7 +7,7 @@ use tauri::{AppHandle, Emitter, State};
 pub async fn session_status(
     app: AppHandle,
     state: State<'_, AuthState>,
-) -> Result<SessionStatus, String> {
+) -> Result<SessionStatus, AppMessage> {
     let context = state.client(&app).await.map_err(|error| error.message())?;
 
     workflow::session_status(context)
@@ -15,7 +16,7 @@ pub async fn session_status(
 }
 
 #[tauri::command]
-pub async fn sign_out(app: AppHandle, state: State<'_, AuthState>) -> Result<(), String> {
+pub async fn sign_out(app: AppHandle, state: State<'_, AuthState>) -> Result<(), AppMessage> {
     let context = state.client(&app).await.map_err(|error| error.message())?;
 
     workflow::sign_out(&state, context, &TauriEvents(&app))
