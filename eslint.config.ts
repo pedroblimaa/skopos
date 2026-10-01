@@ -11,6 +11,19 @@ export default tseslint.config(
   eslint.configs.recommended,
   ...tseslint.configs.strictTypeChecked,
   {
+    linterOptions: { reportUnusedDisableDirectives: "error" },
+    rules: {
+      "complexity": ["error", { max: 20, variant: "modified" }],
+      "max-depth": ["error", 3],
+      "max-params": ["error", 4],
+      "no-else-return": ["error", { allowElseIf: false }],
+      "no-nested-ternary": "error",
+      "no-lonely-if": "error",
+      "eqeqeq": ["error", "always"],
+      "curly": ["error", "multi-line"],
+    },
+  },
+  {
     files: ["scripts/**/*.mjs"],
     ...tseslint.configs.disableTypeChecked,
     languageOptions: { globals: globals.node },

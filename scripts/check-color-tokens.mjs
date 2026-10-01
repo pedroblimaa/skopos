@@ -13,6 +13,7 @@ const violations = [];
 
 for (const file of [...(await sourceFiles(join(root, "src"))), join(root, "index.html")]) {
   if (file === palette) continue;
+
   const source = await readFile(file, "utf8");
   // Preserve offsets so diagnostics point to the original source lines.
   const code = source.replace(/\/\*[\s\S]*?\*\/|<!--[^]*?-->/g, (comment) =>
@@ -21,17 +22,7 @@ for (const file of [...(await sourceFiles(join(root, "src"))), join(root, "index
   const literals = /#[\da-f]{3,8}\b|\b(?:rgba?|hsla?|hwb|lab|lch|oklab|oklch|color)\s*\(/gi;
   for (const match of code.matchAll(literals)) report(file, source, match.index, match[0]);
 
-  const values =
-    extname(file) === ".css"
-      ? /(?:^|[;{])\s*[\w-]+\s*:\s*([^;{}]+)/g
-      : /(?:\b(?:color|bgColor|fgColor|fill|stroke|background|backgroundColor|borderColor|outlineColor)\s*(?:=|:)\s*(?:\{\s*)?["'])([^"']+)["']/g;
-  for (const value of code.matchAll(values)) {
-    for (const word of value[1].matchAll(/(?<![\w-])[a-z]+(?![\w-])/gi)) {
-      if (namedColors.has(word[0].toLowerCase())) {
-        report(file, source, value.index + value[0].indexOf(value[1]) + word.index, word[0]);
-      }
-    }
-  }
+  reportNamedColors(file, source, code);
 }
 
 if (violations.length > 0) {
@@ -44,19 +35,40 @@ if (violations.length > 0) {
 
 async function sourceFiles(directory) {
   const files = [];
+
   for (const entry of await readdir(directory, { withFileTypes: true })) {
     const path = join(directory, entry.name);
-    if (entry.isDirectory()) files.push(...(await sourceFiles(path)));
-    else if (
-      /\.(?:css|tsx?|jsx?|svg|html)$/.test(entry.name) &&
-      !/\.(?:test|spec)\./.test(entry.name)
-    )
+
+    if (entry.isDirectory()) {
+      files.push(...(await sourceFiles(path)));
+      continue;
+    }
+
+    if (/\.(?:css|tsx?|jsx?|svg|html)$/.test(entry.name) && !/\.(?:test|spec)\./.test(entry.name)) {
       files.push(path);
+    }
   }
+
   return files;
+}
+
+function reportNamedColors(file, source, code) {
+  const values =
+    extname(file) === ".css"
+      ? /(?:^|[;{])\s*[\w-]+\s*:\s*([^;{}]+)/g
+      : /(?:\b(?:color|bgColor|fgColor|fill|stroke|background|backgroundColor|borderColor|outlineColor)\s*(?:=|:)\s*(?:\{\s*)?["'])([^"']+)["']/g;
+
+  for (const value of code.matchAll(values)) {
+    for (const word of value[1].matchAll(/(?<![\w-])[a-z]+(?![\w-])/gi)) {
+      if (!namedColors.has(word[0].toLowerCase())) continue;
+
+      report(file, source, value.index + value[0].indexOf(value[1]) + word.index, word[0]);
+    }
+  }
 }
 
 function report(file, source, index, value) {
   const line = source.slice(0, index).split("\n").length;
+
   violations.push(`${relative(root, file)}:${line}: literal color ${value}`);
 }

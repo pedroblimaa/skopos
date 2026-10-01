@@ -67,6 +67,12 @@ The service owns the transition; the command does not reproduce it. Use project 
 - Run `cargo fmt`, Clippy, and tests through the repository's `pnpm check` script. Run `pnpm tauri build --no-bundle` when a change affects native build behavior.
 - Treat Clippy's complexity and length warnings as prompts to inspect a function, not as hard architecture rules. Avoid suppressing a lint without a local reason.
 
+## Enforced maintainability checks
+
+`Cargo.toml` enables selected Clippy lints for cognitive complexity, argument count, `let ... else` guard clauses, redundant `else` branches, nested or-patterns, unnecessary cloning of `Copy` values, and unnecessarily indirect iterator/option/string operations. `clippy.toml` sets the cognitive complexity threshold to 20, below Clippy's default of 25, and the argument threshold to 5, below the default of 7. Five arguments accommodate workflows that explicitly receive state, an adapter, events, and operation identity without bundling unrelated values. Local and CI Clippy commands reject warnings in production and E2E builds.
+
+Use these findings to simplify concrete code. Do not enable entire pedantic or restriction groups without evaluating their impact, and do not split sound workflows into forwarding helpers just to satisfy a metric. A necessary suppression should be local and explain its constraint; changing the enforced rules requires human review.
+
 ## Avoid these patterns
 
 - A feature entry file (`feature.rs` or `feature/mod.rs`) that mixes state, session setup, protocol calls, Tauri commands, and UI error text.
