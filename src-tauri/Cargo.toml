@@ -22,7 +22,7 @@ dotenvy = "0.15"
 tauri-build = { version = "2", features = [] }
 
 [dependencies]
-base64 = "0.22"
+base64 = "0.23"
 grammers-client = "0.10"
 grammers-session = "0.10"
 libsql = { version = "0.9.30", default-features = false, features = ["core"] }
