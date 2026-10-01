@@ -34,6 +34,7 @@ jobs:
           node-version: "24"
       - run: npm install --global pnpm@11.9.0
       - run: pnpm install --frozen-lockfile
+      - run: rustup component add rustfmt
       - run: pnpm format:check
       - run: pnpm lint
       - run: pnpm typecheck

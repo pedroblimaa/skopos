@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { AddWatchPage } from "./AddWatchPage";
 import type { Watch } from "../../watch.model";
 
@@ -30,13 +30,69 @@ function renderPage(path = "/watches/new") {
       <Routes>
         <Route path="/watches/new" element={<AddWatchPage />} />
         <Route path="/watches/:watchId/edit" element={<AddWatchPage />} />
-        <Route path="/connected" element={<h1>Products home</h1>} />
+        <Route
+          path="/connected"
+          element={
+            <>
+              <h1>Products home</h1>
+              <Link to="/watches/new">Add another product</Link>
+            </>
+          }
+        />
       </Routes>
     </MemoryRouter>,
   );
 }
 
 describe("AddWatchPage", () => {
+  it.each([
+    ["create", true],
+    ["create", false],
+    ["update", true],
+    ["update", false],
+  ] as const)(
+    "preserves a new draft after a late %s save result (success: %s)",
+    async (kind, succeeds) => {
+      let resolve!: () => void;
+      let reject!: (reason: Error) => void;
+      const pendingSave = new Promise<void>((res, rej) => {
+        resolve = res;
+        reject = rej;
+      });
+      api.listWatches.mockResolvedValue([{ id: 7, phrases: ["Laptop"], maxPriceCents: null }]);
+      const saveCommand = kind === "create" ? api.createWatch : api.updateWatch;
+      saveCommand.mockReturnValueOnce(pendingSave);
+      renderPage(kind === "create" ? "/watches/new" : "/watches/7/edit");
+      await screen.findByLabelText("Product name");
+
+      fireEvent.change(screen.getByLabelText("Product name"), {
+        target: { value: "First product" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: kind === "create" ? "Add product" : "Save changes" }),
+      );
+
+      expect(screen.getByRole("button", { name: "Saving…" })).toBeDisabled();
+      expect(saveCommand).toHaveBeenCalledTimes(1);
+
+      fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+      fireEvent.click(screen.getByRole("link", { name: "Add another product" }));
+      fireEvent.change(screen.getByLabelText("Product name"), {
+        target: { value: "Second product" },
+      });
+
+      await act(async () => {
+        if (succeeds) resolve();
+        else reject(new Error("Late failure"));
+        await pendingSave.catch(() => {});
+      });
+
+      expect(screen.getByLabelText("Product name")).toHaveValue("Second product");
+      expect(screen.getByRole("button", { name: "Add product" })).toBeEnabled();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+  );
+
   it("validates alternative names and preserves remaining names when removing a middle row", async () => {
     renderPage();
     fireEvent.change(screen.getByLabelText("Product name"), { target: { value: "Laptop" } });

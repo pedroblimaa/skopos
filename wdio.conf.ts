@@ -1,3 +1,5 @@
+import { resolve } from "node:path";
+
 export const config = {
   runner: "local",
   logLevel: "error",
@@ -14,6 +16,11 @@ export const config = {
           process.env.SKOPOS_E2E_BINARY ??
           `./src-tauri/target/debug/skopos${process.platform === "win32" ? ".exe" : ""}`,
         driverProvider: "embedded",
+        env: {
+          LLVM_PROFILE_FILE:
+            process.env.LLVM_PROFILE_FILE ??
+            resolve(import.meta.dirname, "src-tauri/target/e2e-profiles/skopos-%p-%m.profraw"),
+        },
       },
     ],
   ],

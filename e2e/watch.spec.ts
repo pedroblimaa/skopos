@@ -65,6 +65,78 @@ describe("product desktop flows", () => {
     ]);
   });
 
+  it("preserves a new draft when a save finishes after leaving the previous form", async () => {
+    await $("button=Add product").click();
+    await $("#phrase-0").setValue("First product");
+    await browser.execute(() => {
+      const testWindow = window as unknown as Window & {
+        __TAURI__: {
+          core: { invoke: (name: string, ...args: unknown[]) => Promise<unknown> };
+          event: unknown;
+        };
+        finishProductSave?: () => void | Promise<void>;
+      };
+      const originalInvoke = testWindow.__TAURI__.core.invoke;
+      const originalApi = testWindow.__TAURI__;
+      const originalDescriptor = Object.getOwnPropertyDescriptor(testWindow, "__TAURI__");
+      if (!originalDescriptor) throw new Error("Tauri test API is missing");
+
+      const restoreApi = () => {
+        Object.defineProperty(testWindow, "__TAURI__", originalDescriptor);
+        delete testWindow.finishProductSave;
+      };
+
+      testWindow.finishProductSave = restoreApi;
+      Object.defineProperty(testWindow, "__TAURI__", {
+        configurable: true,
+        value: {
+          core: {
+            invoke: (name: string, ...args: unknown[]) => {
+              if (name !== "create_watch") return originalInvoke(name, ...args);
+
+              let release!: () => void;
+              const gate = new Promise<void>((resolve) => {
+                release = resolve;
+              });
+              const completion = originalInvoke(name, ...args).then(async (product) => {
+                await gate;
+                return product;
+              });
+
+              testWindow.finishProductSave = async () => {
+                restoreApi();
+                release();
+                await completion.catch(() => {});
+              };
+              return completion;
+            },
+          },
+          event: originalApi.event,
+        },
+      });
+    });
+
+    try {
+      await $("button=Add product").click();
+      await $("button=Saving…").waitForDisplayed();
+      await $("button=Cancel").click();
+      await $("h1=Products").waitForDisplayed();
+
+      await $("button=Add product").click();
+      await $("#phrase-0").setValue("Second product");
+      await finishProductSave();
+
+      assert.equal(await $("h1=Add product").isDisplayed(), true);
+      assert.equal(await $("#phrase-0").getValue(), "Second product");
+      assert.deepEqual(
+        (await command<Watch[]>("list_watches")).map((watch) => watch.phrases),
+        [["First product"]],
+      );
+    } finally {
+      await finishProductSave();
+    }
+  });
+
   it("can cancel deletion, then delete only the selected product permanently", async () => {
     const saved = await seedProduct();
     const other = await command<Watch>("create_watch", {
@@ -164,6 +236,15 @@ async function seedProduct() {
   await reloadProducts();
   await $("strong=Laptop Vivobook S14").waitForDisplayed();
   return saved;
+}
+
+async function finishProductSave() {
+  await browser.execute(async () => {
+    const testWindow = window as Window & {
+      finishProductSave?: () => void | Promise<void>;
+    };
+    await testWindow.finishProductSave?.();
+  });
 }
 
 async function reloadProducts() {

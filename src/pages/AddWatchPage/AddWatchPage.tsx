@@ -1,4 +1,4 @@
-import { useEffect, useState, type SubmitEvent } from "react";
+import { useEffect, useRef, useState, type SubmitEvent } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { ChevronRight, Plus, Trash2 } from "lucide-react";
 import { Button } from "../../components/Button/Button";
@@ -25,9 +25,19 @@ export function AddWatchPage() {
   const [submitted, setSubmitted] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [saveError, setSaveError] = useState("");
+  const isActive = useRef(false);
   const priceCents = parsePriceCents(price);
   const hasPhraseError = submitted && phrases.some(({ value }) => !value.trim());
   const hasPriceError = submitted && Number.isNaN(priceCents);
+  const saveLabel = isEditing ? "Save changes" : "Add product";
+
+  useEffect(() => {
+    isActive.current = true;
+
+    return () => {
+      isActive.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!watchId) return;
@@ -84,8 +94,12 @@ export function AddWatchPage() {
       };
       if (isEditing) await telegram.updateWatch(Number(watchId), input);
       else await telegram.createWatch(input);
+
+      if (!isActive.current) return;
       void navigate("/connected");
     } catch (error) {
+      if (!isActive.current) return;
+
       setSaveError(errorMessage(error));
       setIsBusy(false);
     }
@@ -215,7 +229,7 @@ export function AddWatchPage() {
                   type="submit"
                   disabled={isBusy || (submitted && (hasPhraseError || hasPriceError))}
                 >
-                  {isBusy ? "Saving…" : isEditing ? "Save changes" : "Add product"}
+                  {isBusy ? "Saving…" : saveLabel}
                 </Button>
               </div>
             </form>
