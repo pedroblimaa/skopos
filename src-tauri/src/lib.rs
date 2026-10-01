@@ -1,9 +1,10 @@
 mod telegram;
+mod watch;
 #[cfg(feature = "e2e")]
 use telegram::e2e;
 
 // Keep production command registration identical in normal and E2E builds.
-macro_rules! auth_handler {
+macro_rules! app_handler {
     ($($extra:path),* $(,)?) => {
         tauri::generate_handler![
             telegram::session::commands::session_status,
@@ -13,6 +14,10 @@ macro_rules! auth_handler {
             telegram::phone::commands::submit_phone_code,
             telegram::phone::commands::submit_password,
             telegram::session::commands::sign_out,
+            watch::commands::create_watch,
+            watch::commands::list_watches,
+            watch::commands::update_watch,
+            watch::commands::delete_watch,
             $($extra),*
         ]
     };
@@ -28,11 +33,11 @@ pub fn run() {
 
     let builder = builder.manage(telegram::AuthState::default());
     #[cfg(not(feature = "e2e"))]
-    let builder = builder.invoke_handler(auth_handler!());
+    let builder = builder.invoke_handler(app_handler!());
     #[cfg(feature = "e2e")]
     let builder = builder
         .manage(std::sync::Arc::new(e2e::FixtureState::default()))
-        .invoke_handler(auth_handler![
+        .invoke_handler(app_handler![
             e2e::commands::configure,
             e2e::commands::inspect,
             e2e::commands::refresh_qr,

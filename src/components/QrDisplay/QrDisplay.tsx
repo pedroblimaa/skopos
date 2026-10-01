@@ -26,8 +26,8 @@ export function QrDisplay({ token }: { token: QrToken | null }) {
           <QRCodeSVG
             value={token.url}
             size={224}
-            bgColor="#dae2fd"
-            fgColor="#0b1326"
+            bgColor="var(--color-qr-background)"
+            fgColor="var(--color-qr-foreground)"
             marginSize={2}
           />
         ) : (

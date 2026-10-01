@@ -1,9 +1,9 @@
 .card {
-  background: rgba(23, 31, 51, 0.94);
-  border: 1px solid rgba(136, 146, 155, 0.1);
-  border-radius: 16px;
-  padding: 32px;
-  box-shadow: 0 24px 80px rgba(0, 0, 0, 0.22);
+  background: var(--color-surface);
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-panel);
+  padding: var(--space-8);
+  box-shadow: var(--shadow-panel);
 }
 @media (max-width: 520px) {
   .card {

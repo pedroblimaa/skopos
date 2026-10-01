@@ -1,12 +1,177 @@
-.connected-page .card {
-  text-align: center;
-  display: grid;
-  gap: 16px;
+.connected-page {
+  padding: 44px 24px;
 }
-.connected-page .card p {
+.connected-watches {
+  width: min(100%, 720px);
+  margin: 0 auto;
+}
+.connected-watches-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+  margin-bottom: 28px;
+}
+.connected-watches-heading h1 {
   margin: 0;
+  font-family: var(--font-system);
+  font-size: 28px;
+  letter-spacing: -0.03em;
 }
-.connected-icon {
-  color: #86cfff;
-  margin: auto;
+.connected-loading {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.connected-watches-heading .button {
+  flex-shrink: 0;
+}
+.connected-empty {
+  display: grid;
+  justify-items: center;
+  padding: 48px 24px;
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-panel);
+  text-align: center;
+}
+.connected-empty > svg {
+  color: var(--color-link);
+  margin-bottom: 18px;
+}
+.connected-empty h2 {
+  margin: 0 0 8px;
+  font-size: 18px;
+}
+.connected-empty p {
+  color: var(--color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+  margin: 0 0 24px;
+}
+.connected-watch-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: var(--space-3);
+}
+.connected-watch-list li {
+  border: 1px solid var(--color-separator);
+  border-radius: var(--radius-panel);
+  background: var(--color-surface);
+  transition:
+    border-color var(--motion-feedback) var(--ease-standard),
+    background var(--motion-feedback) var(--ease-standard);
+}
+.connected-watch-list li:hover,
+.connected-watch-list li:focus-within {
+  border-color: var(--color-border);
+  background: var(--color-surface-raised);
+}
+.connected-watch-row {
+  display: flex;
+  align-items: center;
+  padding-right: 12px;
+}
+.connected-watch-link {
+  display: flex;
+  flex: 1;
+  min-width: 0;
+  align-items: center;
+  gap: var(--space-4);
+  padding: 20px 16px;
+  text-decoration: none;
+  color: inherit;
+  border-radius: var(--radius-panel);
+}
+.connected-watch-icon {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 42px;
+  height: 42px;
+  border-radius: var(--radius-control);
+  background: var(--color-surface-raised);
+  color: var(--color-link);
+}
+.connected-watch-details {
+  display: grid;
+  gap: var(--space-2);
+  min-width: 0;
+  flex: 1;
+}
+.connected-watch-details strong {
+  overflow-wrap: anywhere;
+  font-size: 15px;
+}
+.connected-watch-details span {
+  color: var(--color-secondary);
+  font-size: 12px;
+}
+.connected-watch-arrow {
+  flex-shrink: 0;
+  color: var(--color-muted);
+  transition: color var(--motion-feedback) var(--ease-standard);
+}
+.connected-watch-link:hover .connected-watch-arrow {
+  color: var(--color-link);
+}
+.connected-delete {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-transparent);
+  color: var(--color-muted);
+  transition:
+    color var(--motion-feedback) var(--ease-standard),
+    background var(--motion-feedback) var(--ease-standard);
+}
+.connected-delete:hover {
+  color: var(--color-danger);
+  background: var(--color-danger-soft);
+}
+.connected-delete-confirm {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: 14px 16px;
+  border-top: 1px solid var(--color-separator);
+}
+.connected-delete-confirm p {
+  margin: 0;
+  font-size: 13px;
+  color: var(--color-danger);
+}
+.connected-delete-confirm > div {
+  display: flex;
+  gap: var(--space-2);
+}
+@media (max-width: 520px) {
+  .connected-page {
+    padding: 28px 16px;
+  }
+  .connected-watches-heading {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+  .connected-watches-heading h1 {
+    font-size: 26px;
+  }
+  .connected-delete-confirm {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .connected-watch-list li,
+  .connected-watch-arrow,
+  .connected-delete {
+    transition: none;
+  }
 }

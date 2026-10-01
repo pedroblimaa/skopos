@@ -7,6 +7,7 @@ import type {
   QrToken,
   SessionStatus,
 } from "./telegram.model";
+import type { CreateWatch, Watch } from "./watch.model";
 
 export type { CodeRequest, LoginResult, QrToken, SessionStatus } from "./telegram.model";
 
@@ -18,6 +19,10 @@ export const telegram = {
   submitCode: (code: string) => command<LoginResult>("submit_phone_code", { code }),
   submitPassword: (password: string) => command<LoginResult>("submit_password", { password }),
   signOut: () => command<unknown>("sign_out").then(() => {}),
+  createWatch: (input: CreateWatch) => command<Watch>("create_watch", { input }),
+  updateWatch: (id: number, input: CreateWatch) => command<Watch>("update_watch", { id, input }),
+  deleteWatch: (id: number) => command<unknown>("delete_watch", { id }).then(() => {}),
+  listWatches: () => command<Watch[]>("list_watches"),
   onQr: (callback: (token: QrToken) => void) => onEvent<QrToken>("telegram:qr-token", callback),
   onAuthenticated: (callback: (status: SessionStatus) => void) =>
     onEvent<SessionStatus>("telegram:auth-changed", callback),
