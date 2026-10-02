@@ -6,6 +6,7 @@ import { FormField } from "../../components/FormField/FormField";
 import { QrDisplay } from "../../components/QrDisplay/QrDisplay";
 import { Tabs } from "../../components/Tabs/Tabs";
 import { SessionLoading } from "../../components/SessionLoading/SessionLoading";
+import { AppIcon } from "../../components/AppIcon/AppIcon";
 import { VerificationCodeInput } from "../../components/VerificationCodeInput/VerificationCodeInput";
 import { useTelegramLogin, type LoginMethod } from "./useTelegramLogin";
 import "./LoginPage.css";
@@ -48,7 +49,7 @@ export function LoginPage() {
     <main className="auth-page">
       <div className="auth-layout">
         <div className="brand">
-          <QrCode size={22} aria-hidden="true" />
+          <AppIcon size={30} />
           <span>Skopos · {t("telegramLogin")}</span>
         </div>
         <h1 className="auth-heading">{t("authorizeTelegram")}</h1>

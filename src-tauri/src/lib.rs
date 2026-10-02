@@ -9,12 +9,17 @@ macro_rules! app_handler {
     ($($extra:path),* $(,)?) => {
         tauri::generate_handler![
             telegram::session::commands::session_status,
+            telegram::session::commands::get_profile_photo,
             telegram::qr::commands::start_qr_login,
             telegram::qr::commands::stop_qr_login,
             telegram::phone::commands::request_phone_code,
             telegram::phone::commands::submit_phone_code,
             telegram::phone::commands::submit_password,
             telegram::session::commands::sign_out,
+            telegram::chats::commands::list_chats,
+            telegram::chats::commands::get_chat_photo,
+            telegram::chats::commands::get_selected_chats,
+            telegram::chats::commands::save_selected_chats,
             watch::commands::create_watch,
             watch::commands::list_watches,
             watch::commands::update_watch,
@@ -32,7 +37,9 @@ pub fn run() {
         .plugin(tauri_plugin_wdio::init())
         .plugin(tauri_plugin_wdio_webdriver::init());
 
-    let builder = builder.manage(telegram::AuthState::default());
+    let builder = builder
+        .manage(telegram::AuthState::default())
+        .manage(telegram::chats::ChatPhotos::default());
     #[cfg(not(feature = "e2e"))]
     let builder = builder.invoke_handler(app_handler!());
     #[cfg(feature = "e2e")]
@@ -40,6 +47,7 @@ pub fn run() {
         .manage(std::sync::Arc::new(e2e::FixtureState::default()))
         .invoke_handler(app_handler![
             e2e::commands::configure,
+            e2e::commands::focus_window,
             e2e::commands::inspect,
             e2e::commands::refresh_qr,
             e2e::commands::authorize_qr,

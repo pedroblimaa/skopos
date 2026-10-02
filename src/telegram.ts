@@ -6,6 +6,7 @@ import type {
   LoginResult,
   QrToken,
   SessionStatus,
+  TelegramChat,
 } from "./telegram.model";
 import type { CreateWatch, Watch } from "./watch.model";
 import { isAppMessage, type AppMessage } from "./app-message";
@@ -14,6 +15,7 @@ export type { CodeRequest, LoginResult, QrToken, SessionStatus } from "./telegra
 
 export const telegram = {
   status: () => command<SessionStatus>("session_status"),
+  getProfilePhoto: () => command<string | null>("get_profile_photo"),
   startQr: () => command<unknown>("start_qr_login").then(() => {}),
   stopQr: () => command<unknown>("stop_qr_login").then(() => {}),
   requestCode: (phone: string) => command<CodeRequest>("request_phone_code", { phone }),
@@ -24,6 +26,11 @@ export const telegram = {
   updateWatch: (id: number, input: CreateWatch) => command<Watch>("update_watch", { id, input }),
   deleteWatch: (id: number) => command<unknown>("delete_watch", { id }).then(() => {}),
   listWatches: () => command<Watch[]>("list_watches"),
+  listChats: () => command<TelegramChat[]>("list_chats"),
+  getChatPhoto: (id: string) => command<string | null>("get_chat_photo", { id }),
+  getSelectedChats: () => command<TelegramChat[]>("get_selected_chats"),
+  saveSelectedChats: (chats: TelegramChat[]) =>
+    command<unknown>("save_selected_chats", { chats }).then(() => {}),
   onQr: (callback: (token: QrToken) => void) => onEvent<QrToken>("telegram:qr-token", callback),
   onAuthenticated: (callback: (status: SessionStatus) => void) =>
     onEvent<SessionStatus>("telegram:auth-changed", callback),

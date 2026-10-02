@@ -29,6 +29,11 @@ export const staticMessageCodes = [
   "productNotFound",
   "watchStorage",
   "watchStorageOpen",
+  "chatStorage",
+  "invalidChatSelection",
+  "chatListIncomplete",
+  "chatLoadFailed",
+  "chatRateLimit",
   "deliveryApp",
   "deliverySms",
   "deliveryCall",
@@ -39,6 +44,7 @@ export const staticMessageCodes = [
 export type AppMessage =
   | { code: (typeof staticMessageCodes)[number] }
   | { code: "floodWaitSeconds"; params: { seconds: number } }
+  | { code: "chatRateLimitSeconds"; params: { seconds: number } }
   | { code: "telegramRejected"; params: { name: string } }
   | { code: "deliveryEmail"; params: { email: string } }
   | { code: "deliveryFragment"; params: { url: string } }
@@ -66,6 +72,7 @@ export function isAppMessage(value: unknown): value is AppMessage {
 
   switch (value.code) {
     case "floodWaitSeconds":
+    case "chatRateLimitSeconds":
       return (
         "seconds" in params && typeof params.seconds === "number" && Number.isFinite(params.seconds)
       );

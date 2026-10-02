@@ -1,4 +1,7 @@
-use super::workflow::{self, SessionEvents};
+use super::{
+    profile,
+    workflow::{self, SessionEvents},
+};
 use crate::app_message::AppMessage;
 use crate::telegram::{client::SessionStatus, state::AuthState};
 use tauri::{AppHandle, Emitter, State};
@@ -11,6 +14,18 @@ pub async fn session_status(
     let context = state.client(&app).await.map_err(|error| error.message())?;
 
     workflow::session_status(context)
+        .await
+        .map_err(|error| error.message())
+}
+
+#[tauri::command]
+pub async fn get_profile_photo(
+    app: AppHandle,
+    state: State<'_, AuthState>,
+) -> Result<Option<String>, AppMessage> {
+    let context = state.client(&app).await.map_err(|error| error.message())?;
+
+    profile::load_photo(&context.client)
         .await
         .map_err(|error| error.message())
 }

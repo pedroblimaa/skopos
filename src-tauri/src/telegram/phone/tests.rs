@@ -570,49 +570,51 @@ fn password_failure(kind: &str) -> SignInError {
 
 #[tokio::test]
 async fn password_failure_resets_the_step_and_stale_failures_preserve_new_login() {
-    for cancelled in [false, true] {
-        for kind in ["invalid", "network", "other"] {
-            let state = AuthState::default();
-            state
-                .login
-                .lock()
+    let scenarios = [false, true]
+        .into_iter()
+        .flat_map(|cancelled| ["invalid", "network", "other"].map(|kind| (cancelled, kind)));
+
+    for (cancelled, kind) in scenarios {
+        let state = AuthState::default();
+        state
+            .login
+            .lock()
+            .await
+            .begin(LoginStep::Password(Box::new(token())));
+        let gate = std::sync::Arc::new(Gate::default());
+        let mut api = FakeSignInApi::new(Ok(SignInOutcome::Authorized));
+        api.password_results
+            .lock()
+            .unwrap()
+            .push_back(Err(password_failure(kind)));
+
+        let error = if cancelled {
+            api.pause = Some(("password", gate.clone()));
+
+            let (result, ()) = tokio::join!(
+                submit_password(&state, &api, &FakeEvents, "wrong".into()),
+                replace_attempt(&state, &gate)
+            );
+            result.err().unwrap().message()
+        } else {
+            submit_password(&state, &api, &FakeEvents, "wrong".into())
                 .await
-                .begin(LoginStep::Password(Box::new(token())));
-            let gate = std::sync::Arc::new(Gate::default());
-            let mut api = FakeSignInApi::new(Ok(SignInOutcome::Authorized));
-            api.password_results
-                .lock()
+                .err()
                 .unwrap()
-                .push_back(Err(password_failure(kind)));
+                .message()
+        };
 
-            let error = if cancelled {
-                api.pause = Some(("password", gate.clone()));
-
-                let (result, ()) = tokio::join!(
-                    submit_password(&state, &api, &FakeEvents, "wrong".into()),
-                    replace_attempt(&state, &gate)
-                );
-                result.err().unwrap().message()
-            } else {
-                submit_password(&state, &api, &FakeEvents, "wrong".into())
-                    .await
-                    .err()
-                    .unwrap()
-                    .message()
-            };
-
-            if cancelled {
-                assert_eq!(error, AppMessage::AuthCancelled);
-                assert!(matches!(state.login.lock().await.step, LoginStep::Qr));
-            } else if kind == "invalid" {
-                assert_eq!(error, AppMessage::IncorrectPassword);
-                assert!(matches!(
-                    state.login.lock().await.step,
-                    LoginStep::Password(_)
-                ));
-            } else {
-                assert!(matches!(state.login.lock().await.step, LoginStep::Idle));
-            }
+        if cancelled {
+            assert_eq!(error, AppMessage::AuthCancelled);
+            assert!(matches!(state.login.lock().await.step, LoginStep::Qr));
+        } else if kind == "invalid" {
+            assert_eq!(error, AppMessage::IncorrectPassword);
+            assert!(matches!(
+                state.login.lock().await.step,
+                LoginStep::Password(_)
+            ));
+        } else {
+            assert!(matches!(state.login.lock().await.step, LoginStep::Idle));
         }
     }
 }

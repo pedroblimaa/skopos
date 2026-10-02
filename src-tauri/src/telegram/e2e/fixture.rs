@@ -1,5 +1,5 @@
 use super::responses::{authorization, password, rpc};
-use grammers_client::{client::PasswordToken, tl, InvocationError, SignInError};
+use grammers_client::{client::PasswordToken, sender::RpcError, tl, InvocationError, SignInError};
 use serde::Deserialize;
 use std::sync::Mutex;
 use std::time::{SystemTime, UNIX_EPOCH};
@@ -21,6 +21,11 @@ pub(crate) struct Scenario {
     pub(in crate::telegram) status_error: Option<String>,
     pub(in crate::telegram) status_error_after_login: bool,
     pub(in crate::telegram) sign_out_error: Option<String>,
+    pub(in crate::telegram) account_id: Option<i64>,
+    pub(in crate::telegram) chats_error: bool,
+    pub(in crate::telegram) chat_photos: bool,
+    pub(in crate::telegram) photo_error: bool,
+    pub(in crate::telegram) profile_photo: bool,
 }
 
 #[derive(Default)]
@@ -98,6 +103,11 @@ impl FixtureState {
 impl Fixture {
     fn response(&mut self, id: u32, body: &[u8]) -> Result<Vec<u8>, InvocationError> {
         match id {
+            tl::functions::users::GetUsers::CONSTRUCTOR_ID => Ok(self.get_users()?.to_bytes()),
+            tl::functions::messages::GetDialogs::CONSTRUCTOR_ID => {
+                Ok(self.get_dialogs(body)?.to_bytes())
+            }
+            tl::functions::upload::GetFile::CONSTRUCTOR_ID => Ok(self.get_file()?.to_bytes()),
             tl::functions::auth::SendCode::CONSTRUCTOR_ID => Ok(self.send_code()?.to_bytes()),
             tl::functions::auth::SignIn::CONSTRUCTOR_ID => self.sign_in(body),
             tl::functions::account::GetPassword::CONSTRUCTOR_ID => {
@@ -110,6 +120,64 @@ impl Fixture {
             }
             _ => Err(InvocationError::Dropped),
         }
+    }
+
+    fn get_users(&self) -> Result<Vec<tl::enums::User>, InvocationError> {
+        if !self.scenario.authorized {
+            return Err(InvocationError::Rpc(RpcError {
+                code: 401,
+                name: "AUTH_KEY_UNREGISTERED".into(),
+                value: None,
+                caused_by: None,
+            }));
+        }
+
+        let mut user = super::chats::account(self.scenario.account_id.unwrap_or(1));
+        if self.scenario.profile_photo {
+            user.photo = Some(
+                tl::types::UserProfilePhoto {
+                    has_video: false,
+                    personal: false,
+                    photo_id: 42,
+                    stripped_thumb: None,
+                    dc_id: 2,
+                }
+                .into(),
+            );
+        }
+
+        Ok(vec![user.into()])
+    }
+
+    fn get_dialogs(&self, body: &[u8]) -> Result<tl::enums::messages::Dialogs, InvocationError> {
+        if self.scenario.chats_error {
+            return Err(InvocationError::Dropped);
+        }
+
+        let request = tl::functions::messages::GetDialogs::from_bytes(body)
+            .map_err(|_| InvocationError::Dropped)?;
+
+        Ok(super::chats::page(
+            request.folder_id == Some(1),
+            self.scenario.chat_photos,
+        ))
+    }
+
+    fn get_file(&self) -> Result<tl::enums::upload::File, InvocationError> {
+        if self.scenario.photo_error {
+            return Err(InvocationError::Dropped);
+        }
+
+        Ok(tl::types::upload::File {
+            r#type: tl::enums::storage::FileType::FileJpeg,
+            mtime: 0,
+            bytes: if self.scenario.profile_photo {
+                include_bytes!("avatar.jpg").to_vec()
+            } else {
+                vec![0xff, 0xd8]
+            },
+        }
+        .into())
     }
 
     fn send_code(&mut self) -> Result<tl::enums::auth::SentCode, InvocationError> {

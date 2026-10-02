@@ -207,6 +207,9 @@ describe("product desktop flows", () => {
   });
 
   it("reveals name matching help on focus and dismisses with Escape", async () => {
+    await command("focus_window");
+    await browser.waitUntil(() => browser.execute(() => document.hasFocus()));
+
     await $("button=Add product").click();
     const trigger = $("button[aria-label='How search names match']");
     await trigger.waitForDisplayed();
@@ -266,6 +269,83 @@ describe("product desktop flows", () => {
     await $("button=Sign out").click();
     await $("h1=Authorize Telegram").waitForDisplayed();
     assert.deepEqual(await command<Watch[]>("list_watches"), [saved]);
+  });
+
+  it("shows the Telegram avatar beside the menu and keeps it when changing pages", async () => {
+    await command("configure", { scenario: { authorized: true, profilePhoto: true } });
+    await reloadProducts();
+    const avatar = $(".app-profile-icon img");
+    await avatar.waitForDisplayed();
+    await browser.waitUntil(() =>
+      browser.execute(() => {
+        const image = document.querySelector<HTMLImageElement>(".app-profile-icon img");
+        return image !== null && image.complete && image.naturalWidth > 0;
+      }),
+    );
+
+    const placement = await browser.execute(() => {
+      const trigger = document.querySelector(".app-profile");
+      const arrow = trigger?.querySelector(":scope > svg")?.getBoundingClientRect();
+      const photo = trigger?.querySelector("img")?.getBoundingClientRect();
+      return arrow && photo ? { arrowRight: arrow.right, photoLeft: photo.left } : null;
+    });
+
+    assert.ok(placement);
+    assert.ok(placement.arrowRight < placement.photoLeft);
+
+    await $("a=Chats").click();
+    await $("h1=Chats").waitForDisplayed();
+    await $("a=Products").click();
+    await $("h1=Products").waitForDisplayed();
+
+    assert.equal(await avatar.isDisplayed(), true);
+
+    await browser.saveScreenshot("src-tauri/target/profile-menu-desktop.png");
+    const originalSize = await browser.getWindowSize();
+
+    try {
+      await browser.setWindowSize(480, 760);
+      await browser.waitUntil(() => browser.execute(() => window.innerWidth <= 520));
+
+      assert.equal(await $(".app-profile-details").isDisplayed(), false);
+      assert.equal(await avatar.isDisplayed(), true);
+
+      await $(".app-profile").click();
+      await $("#telegram-profile-menu").waitForDisplayed();
+      await browser.waitUntil(() =>
+        browser.execute(() => {
+          const menu = document.querySelector("#telegram-profile-menu");
+          return menu !== null && getComputedStyle(menu).opacity === "1";
+        }),
+      );
+      await browser.saveScreenshot("src-tauri/target/profile-menu-narrow.png");
+      const bounds = await browser.execute(() => {
+        const menu = document.querySelector("#telegram-profile-menu")?.getBoundingClientRect();
+        return menu ? { left: menu.left, right: menu.right, width: window.innerWidth } : null;
+      });
+
+      assert.ok(bounds);
+      assert.ok(bounds.left >= 0 && bounds.right <= bounds.width);
+
+      await $(".app-profile").click();
+      await $("#telegram-profile-menu").waitForDisplayed({ reverse: true });
+    } finally {
+      await browser.setWindowSize(originalSize.width, originalSize.height);
+    }
+
+    await command("configure", {
+      scenario: { authorized: true, profilePhoto: true, photoError: true },
+    });
+    await reloadProducts();
+    await $(".app-profile-icon svg").waitForDisplayed();
+
+    assert.equal(await $(".app-profile-icon img").isExisting(), false);
+    assert.equal(await $("h1=Products").isDisplayed(), true);
+
+    await $(".app-profile").click();
+    await $("#telegram-profile-menu").waitForDisplayed();
+
+    assert.equal(await $("button=Sign out").isEnabled(), true);
   });
 });
 

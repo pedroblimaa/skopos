@@ -5,7 +5,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AppShell } from "./AppShell";
 import type { SessionStatus } from "../../telegram";
 
-const api = vi.hoisted(() => ({ status: vi.fn(), signOut: vi.fn() }));
+const api = vi.hoisted(() => ({ status: vi.fn(), signOut: vi.fn(), getProfilePhoto: vi.fn() }));
 vi.mock("../../telegram", () => ({
   telegram: api,
 }));
@@ -13,6 +13,7 @@ beforeEach(() => {
   vi.resetAllMocks();
   api.status.mockResolvedValue({ authorized: true, displayName: "Pedro" });
   api.signOut.mockResolvedValue(undefined);
+  api.getProfilePhoto.mockResolvedValue(null);
 });
 afterEach(cleanup);
 
@@ -22,6 +23,7 @@ function renderShell() {
       <Routes>
         <Route element={<AppShell />}>
           <Route path="/connected" element={<h1>Products</h1>} />
+          <Route path="/chats" element={<h1>Chats</h1>} />
         </Route>
         <Route path="/login" element={<h1>Authorize Telegram</h1>} />
       </Routes>
@@ -30,6 +32,90 @@ function renderShell() {
 }
 
 describe("AppShell", () => {
+  it("shows content before the photo arrives and keeps the avatar across navigation", async () => {
+    let resolvePhoto!: (photo: string) => void;
+    api.getProfilePhoto.mockReturnValue(
+      new Promise<string>((resolve) => {
+        resolvePhoto = resolve;
+      }),
+    );
+    renderShell();
+    await screen.findByRole("heading", { name: "Products" });
+
+    expect(document.querySelector(".app-profile-icon svg")).toBeInTheDocument();
+    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+
+    await act(async () => {
+      resolvePhoto("data:image/jpeg;base64,/9g=");
+      await Promise.resolve();
+    });
+    const avatar = document.querySelector(".app-profile-icon img");
+
+    expect(avatar).toHaveAttribute("src", "data:image/jpeg;base64,/9g=");
+    expect(avatar).toHaveAttribute("alt", "");
+
+    fireEvent.click(screen.getByRole("link", { name: "Chats" }));
+    await screen.findByRole("heading", { name: "Chats" });
+    fireEvent.click(screen.getByRole("link", { name: "Products" }));
+    await screen.findByRole("heading", { name: "Products" });
+
+    expect(document.querySelector(".app-profile-icon img")).toBe(avatar);
+    expect(api.getProfilePhoto).toHaveBeenCalledTimes(1);
+  });
+
+  it.each(["missing", "download", "image"])(
+    "keeps the menu usable with a %s photo failure",
+    async (failure) => {
+      if (failure === "download") api.getProfilePhoto.mockRejectedValue({ code: "authNetwork" });
+      if (failure === "image") api.getProfilePhoto.mockResolvedValue("data:image/jpeg;base64,/9g=");
+      renderShell();
+      await screen.findByText("Pedro");
+
+      if (failure === "image") {
+        await waitFor(() =>
+          expect(document.querySelector(".app-profile-icon img")).toBeInTheDocument(),
+        );
+        const image = document.querySelector(".app-profile-icon img");
+        if (!image) throw new Error("Profile image is missing");
+
+        fireEvent.error(image);
+      }
+
+      await waitFor(() =>
+        expect(document.querySelector(".app-profile-icon svg")).toBeInTheDocument(),
+      );
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Telegram profile" })).toBeEnabled();
+      expect(screen.getByRole("heading", { name: "Products" })).toBeInTheDocument();
+    },
+  );
+
+  it.each([true, false])(
+    "ignores a late photo result after unmount (success: %s)",
+    async (succeeds) => {
+      let resolvePhoto!: (photo: string) => void;
+      let rejectPhoto!: (reason: Error) => void;
+      api.getProfilePhoto.mockReturnValue(
+        new Promise<string>((resolve, reject) => {
+          resolvePhoto = resolve;
+          rejectPhoto = reject;
+        }),
+      );
+      const view = renderShell();
+      await screen.findByText("Pedro");
+      view.unmount();
+
+      await act(async () => {
+        if (succeeds) resolvePhoto("data:image/jpeg;base64,/9g=");
+        else rejectPhoto(new Error("Late photo failure"));
+        await Promise.resolve();
+      });
+
+      expect(document.querySelector(".app-profile-icon")).not.toBeInTheDocument();
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    },
+  );
+
   it("switches the language above sign-out and retranslates an existing error", async () => {
     api.signOut.mockRejectedValueOnce({ code: "authNetwork" });
     renderShell();
@@ -92,6 +178,7 @@ describe("AppShell", () => {
 
     expect(await screen.findByRole("heading", { name: "Authorize Telegram" })).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Products" })).not.toBeInTheDocument();
+    expect(api.getProfilePhoto).not.toHaveBeenCalled();
   });
 
   it("reports profile errors without exposing protected content", async () => {

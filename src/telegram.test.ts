@@ -12,8 +12,31 @@ beforeEach(() => {
 });
 
 describe("Telegram IPC adapter", () => {
+  it("preserves opaque chat IDs and selection metadata across the bridge", async () => {
+    const chat = {
+      id: "channel:9007199254740993",
+      title: "Deals",
+      kind: "channel" as const,
+      username: "deals",
+      available: true,
+    };
+    api.invoke.mockResolvedValue([chat]);
+
+    expect(await telegram.listChats()).toEqual([chat]);
+    expect(await telegram.getSelectedChats()).toEqual([chat]);
+    await telegram.saveSelectedChats([chat]);
+    await telegram.getChatPhoto(chat.id);
+
+    expect(api.invoke.mock.calls).toEqual([
+      ["list_chats", undefined],
+      ["get_selected_chats", undefined],
+      ["save_selected_chats", { chats: [chat] }],
+      ["get_chat_photo", { id: chat.id }],
+    ]);
+  });
   it("uses the expected Tauri commands and arguments", async () => {
     await telegram.status();
+    await telegram.getProfilePhoto();
     await telegram.startQr();
     await telegram.stopQr();
     await telegram.requestCode("+5511999999999");
@@ -27,6 +50,7 @@ describe("Telegram IPC adapter", () => {
 
     expect(api.invoke.mock.calls).toEqual([
       ["session_status", undefined],
+      ["get_profile_photo", undefined],
       ["start_qr_login", undefined],
       ["stop_qr_login", undefined],
       ["request_phone_code", { phone: "+5511999999999" }],

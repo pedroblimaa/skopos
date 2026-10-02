@@ -19,6 +19,11 @@
   background: var(--color-accent);
   color: var(--color-on-accent);
 }
+.button--icon {
+  width: 40px;
+  padding: var(--space-2);
+  flex-shrink: 0;
+}
 .button--primary:not(:disabled):hover {
   background: var(--color-accent-hover);
 }

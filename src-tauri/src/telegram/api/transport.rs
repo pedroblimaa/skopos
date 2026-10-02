@@ -9,6 +9,53 @@ pub(in crate::telegram) struct TelegramApi {
 }
 
 impl TelegramApi {
+    pub(in crate::telegram) async fn chat_photo(
+        &self,
+        location: tl::enums::InputFileLocation,
+    ) -> Result<Vec<u8>, InvocationError> {
+        let photo = grammers_client::media::ChatPhoto {
+            raw: location.clone(),
+        };
+        // grammers handles Telegram file migration and authorization on the photo's data center.
+        let mut download = self.client.iter_download(&photo).chunk_size(64 * 1024);
+        let mut bytes = Vec::new();
+
+        loop {
+            #[cfg(any(test, feature = "e2e"))]
+            let chunk = if self.fixture.is_some() {
+                let file = self
+                    .invoke(&tl::functions::upload::GetFile {
+                        precise: false,
+                        cdn_supported: false,
+                        location: location.clone(),
+                        offset: bytes.len() as i64,
+                        limit: 64 * 1024,
+                    })
+                    .await?;
+                match file {
+                    tl::enums::upload::File::File(file) => Some(file.bytes),
+                    _ => return Err(InvocationError::Dropped),
+                }
+            } else {
+                download.next().await?
+            };
+            #[cfg(not(any(test, feature = "e2e")))]
+            let chunk = download.next().await?;
+
+            let Some(chunk) = chunk else {
+                return Ok(bytes);
+            };
+            if bytes.len() + chunk.len() > 256 * 1024 {
+                return Err(InvocationError::Dropped);
+            }
+            let complete = chunk.len() < 64 * 1024;
+            bytes.extend(chunk);
+            if complete {
+                return Ok(bytes);
+            }
+        }
+    }
+
     pub(in crate::telegram) async fn invoke<R: tl::RemoteCall>(
         &self,
         request: &R,
