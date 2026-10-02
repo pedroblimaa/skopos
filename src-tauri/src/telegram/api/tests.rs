@@ -28,6 +28,18 @@ async fn live_api_reports_a_stopped_sender_without_attempting_network_io() {
         Err(InvocationError::Dropped)
     ));
 
+    let photo = tl::types::InputPeerPhotoFileLocation {
+        big: false,
+        peer: tl::enums::InputPeer::PeerSelf,
+        photo_id: 1,
+    }
+    .into();
+
+    assert!(matches!(
+        api.chat_photo(photo).await,
+        Err(InvocationError::Dropped)
+    ));
+
     let mut info = password();
     info.current_algo = Some(
         tl::types::PasswordKdfAlgoSha256Sha256Pbkdf2Hmacsha512iter100000Sha256ModPow {

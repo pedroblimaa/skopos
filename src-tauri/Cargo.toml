@@ -41,6 +41,7 @@ unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage)'] }
 
 [lints.clippy]
 cognitive_complexity = "warn"
+excessive_nesting = "warn"
 too_many_arguments = "warn"
 manual_let_else = "warn"
 redundant_else = "warn"

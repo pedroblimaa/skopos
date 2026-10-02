@@ -19,6 +19,7 @@ For the current login code, a reasonable _direction_ is a small command boundary
 ## Keep control flow flat
 
 - Return early for invalid input, missing state, cancellation, and unsupported Telegram responses. Let the successful path remain visible.
+- Keep block nesting at four levels or fewer, enforced by Clippy's `excessive_nesting` lint. Clippy counts enclosing `impl` and inline module blocks as levels too; struct literals and multiline expressions are not control-flow nesting.
 - Use `?` to propagate errors when the caller can handle them. Match explicitly when a Telegram response changes the login step, requires migration, or merits a distinct user message.
 - Extract a helper when it names a meaningful operation or isolates a complex branch. A helper that merely hides three lines without clarifying ownership is unnecessary.
 - Model mutually exclusive login steps with an enum when several `Option` fields or booleans can represent impossible combinations. Make transitions explicit, including cleanup after failure, cancellation, sign-out, and successful login.

@@ -60,14 +60,6 @@
   border: 1px solid var(--color-separator);
   border-radius: var(--radius-panel);
   background: var(--color-surface);
-  transition:
-    border-color var(--motion-feedback) var(--ease-standard),
-    background var(--motion-feedback) var(--ease-standard);
-}
-.connected-watch-list li:hover,
-.connected-watch-list li:focus-within {
-  border-color: var(--color-border);
-  background: var(--color-surface-raised);
 }
 .connected-watch-row {
   display: flex;
@@ -169,7 +161,6 @@
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .connected-watch-list li,
   .connected-watch-arrow,
   .connected-delete {
     transition: none;

@@ -1,5 +1,13 @@
 import type { AppMessage } from "./app-message";
 
+export interface TelegramChat {
+  id: string;
+  title: string;
+  kind: "group" | "channel";
+  username: string | null;
+  available: boolean;
+}
+
 export interface SessionStatus {
   authorized: boolean;
   displayName: string | null;

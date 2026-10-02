@@ -1,18 +1,23 @@
 import { useEffect, useState } from "react";
-import { Link, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, Send } from "lucide-react";
+import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
+import { ChevronDown, LogOut, Send } from "lucide-react";
+import { Titlebar } from "../Titlebar/Titlebar";
 import { telegram, type SessionStatus } from "../../telegram";
 import { SessionLoading } from "../SessionLoading/SessionLoading";
 import { InfoTooltip } from "../InfoTooltip/InfoTooltip";
 import { appError, type AppMessage } from "../../app-message";
 import { useLanguage } from "../../i18n/useLanguage";
+import { ChatsContext } from "../../pages/ChatsPage/chats-context";
+import { useChatCache } from "../../pages/ChatsPage/useChatCache";
 import "./AppShell.css";
 
 export function AppShell() {
+  const chatCache = useChatCache();
   const { t, message, language, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const { pathname } = useLocation();
   const [status, setStatus] = useState<SessionStatus | null>(null);
+  const [profilePhoto, setProfilePhoto] = useState<string | null>(null);
   const [error, setError] = useState<AppMessage | null>(null);
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -26,14 +31,22 @@ export function AppShell() {
         const profile = await telegram.status();
         if (!isActive) return;
 
-        if (!profile.authorized) {
-          void navigate("/login", { replace: true });
-          return;
-        }
-
         setStatus(profile);
+        if (!profile.authorized) return;
+
+        await loadPhoto();
       } catch (reason) {
         if (isActive) setError(appError(reason));
+      }
+    }
+
+    async function loadPhoto() {
+      try {
+        const photo = await telegram.getProfilePhoto();
+        if (isActive) setProfilePhoto(photo);
+      } catch {
+        // The avatar is optional; keep the Telegram icon if the download fails.
+        if (isActive) setProfilePhoto(null);
       }
     }
 
@@ -42,7 +55,7 @@ export function AppShell() {
     return () => {
       isActive = false;
     };
-  }, [navigate]);
+  }, []);
 
   async function signOut() {
     setIsSigningOut(true);
@@ -57,12 +70,11 @@ export function AppShell() {
     }
   }
 
+  if (status && !status.authorized) return <Navigate to="/login" replace />;
+
   return (
     <div className="app-shell">
-      <header className="app-topbar">
-        <Link className="app-brand" to="/connected">
-          <Bell size={21} aria-hidden="true" /> Skopos
-        </Link>
+      <Titlebar homePath="/connected">
         <button
           className="app-profile"
           type="button"
@@ -72,14 +84,24 @@ export function AppShell() {
           aria-controls="telegram-profile-menu"
           disabled={!status}
         >
-          <span className="app-profile-icon">
-            <Send size={16} aria-hidden="true" />
-          </span>
+          <ChevronDown size={14} aria-hidden="true" />
           <span className="app-profile-details">
             <span className="app-profile-label">Telegram</span>
             <strong>{status?.displayName ?? t("telegramUser")}</strong>
           </span>
-          <ChevronDown size={14} aria-hidden="true" />
+          <span className="app-profile-icon">
+            {profilePhoto ? (
+              <img
+                src={profilePhoto}
+                alt=""
+                onError={() => {
+                  setProfilePhoto(null);
+                }}
+              />
+            ) : (
+              <Send size={16} aria-hidden="true" />
+            )}
+          </span>
         </button>
         <div
           className="app-profile-menu"
@@ -93,6 +115,7 @@ export function AppShell() {
             <span id="app-language-label">{t("language")}</span>
             <div
               className="app-language-segments"
+              data-language={language}
               role="group"
               aria-labelledby="app-language-label"
             >
@@ -142,16 +165,38 @@ export function AppShell() {
             </p>
           )}
         </div>
-      </header>
+      </Titlebar>
+      {status !== null && (
+        <nav className="app-navigation" aria-label={t("appNavigation")}>
+          <NavLink
+            to="/connected"
+            className={() =>
+              `app-navigation-link${pathname !== "/chats" ? " app-navigation-link--active" : ""}`
+            }
+          >
+            {t("products")}
+          </NavLink>
+          <NavLink
+            to="/chats"
+            className={({ isActive }) =>
+              `app-navigation-link${isActive ? " app-navigation-link--active" : ""}`
+            }
+          >
+            {t("chats")}
+          </NavLink>
+        </nav>
+      )}
       {error !== null && (
         <p className="error app-session-error" role="alert">
           {message(error)}
         </p>
       )}
       {status !== null && (
-        <div className="app-page-transition" key={pathname}>
-          <Outlet />
-        </div>
+        <ChatsContext.Provider value={chatCache}>
+          <div className="app-page-transition" key={pathname}>
+            <Outlet />
+          </div>
+        </ChatsContext.Provider>
       )}
       {!status && !error && <SessionLoading label={t("loadingProfile")} />}
     </div>

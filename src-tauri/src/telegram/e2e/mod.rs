@@ -1,4 +1,5 @@
 //! Telegram API responses and controls available only in test builds.
+pub(in crate::telegram) mod chats;
 #[cfg(feature = "e2e")]
 pub(crate) mod commands;
 #[cfg(test)]

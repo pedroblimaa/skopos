@@ -5,7 +5,16 @@ use super::{
 use crate::telegram::state::{AuthState, LoginStep};
 use serde::Serialize;
 use std::sync::Arc;
-use tauri::State;
+use tauri::{AppHandle, Manager, State};
+
+#[tauri::command]
+pub(crate) fn focus_window(app: AppHandle) -> Result<(), String> {
+    let window = app
+        .get_webview_window("main")
+        .ok_or("Missing test window")?;
+
+    window.set_focus().map_err(|error| error.to_string())
+}
 
 #[tauri::command]
 pub(crate) async fn configure(

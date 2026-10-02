@@ -89,7 +89,7 @@ export function ConnectedPage() {
         {watches.length > 0 && (
           <ul className="connected-watch-list">
             {watches.map((watch) => (
-              <li key={watch.id}>
+              <li key={watch.id} className="interactive-row">
                 <div className="connected-watch-row">
                   <Link className="connected-watch-link" to={`/watches/${String(watch.id)}/edit`}>
                     <span className="connected-watch-icon">
