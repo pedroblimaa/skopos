@@ -2,6 +2,7 @@ use super::{
     protocol::QrToken,
     workflow::{self, QrEvents},
 };
+use crate::app_message::AppMessage;
 use crate::telegram::{
     client::{ClientContext, SessionStatus},
     state::{AuthState, LoginStep},
@@ -9,7 +10,7 @@ use crate::telegram::{
 use tauri::{AppHandle, Emitter, Manager, State};
 
 #[tauri::command]
-pub async fn start_qr_login(app: AppHandle, state: State<'_, AuthState>) -> Result<(), String> {
+pub async fn start_qr_login(app: AppHandle, state: State<'_, AuthState>) -> Result<(), AppMessage> {
     let context = state
         .client(&app)
         .await
@@ -30,7 +31,7 @@ pub async fn start_qr_login(app: AppHandle, state: State<'_, AuthState>) -> Resu
 }
 
 #[tauri::command]
-pub async fn stop_qr_login(state: State<'_, AuthState>) -> Result<(), String> {
+pub async fn stop_qr_login(state: State<'_, AuthState>) -> Result<(), AppMessage> {
     let mut login = state.login.lock().await;
 
     if matches!(login.step, LoginStep::Qr) {
@@ -63,7 +64,7 @@ impl QrEvents for TauriEvents<'_> {
         let _ = self.0.emit("telegram:password-required", hint);
     }
 
-    fn error(&self, message: String) {
+    fn error(&self, message: AppMessage) {
         let _ = self.0.emit("telegram:auth-error", message);
     }
 }

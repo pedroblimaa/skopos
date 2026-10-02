@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render } from "../../test-setup";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { AddWatchPage } from "./AddWatchPage";
@@ -11,7 +12,6 @@ const api = vi.hoisted(() => ({
 }));
 vi.mock("../../telegram", () => ({
   telegram: api,
-  errorMessage: (error: unknown) => String(error),
 }));
 
 beforeEach(() => {
@@ -54,7 +54,7 @@ describe("AddWatchPage", () => {
     "preserves a new draft after a late %s save result (success: %s)",
     async (kind, succeeds) => {
       let resolve!: () => void;
-      let reject!: (reason: Error) => void;
+      let reject!: (reason: unknown) => void;
       const pendingSave = new Promise<void>((res, rej) => {
         resolve = res;
         reject = rej;
@@ -157,7 +157,7 @@ describe("AddWatchPage", () => {
 
   it("preserves edited values on failure and disables fields while saving", async () => {
     api.listWatches.mockResolvedValue([{ id: 7, phrases: ["Laptop"], maxPriceCents: null }]);
-    let reject!: (reason: Error) => void;
+    let reject!: (reason: unknown) => void;
     api.updateWatch.mockReturnValueOnce(
       new Promise((_resolve, rej) => {
         reject = rej;
@@ -174,11 +174,11 @@ describe("AddWatchPage", () => {
     expect(screen.getByLabelText("Product name")).toBeDisabled();
 
     await act(async () => {
-      reject(new Error("Disk full"));
+      reject({ code: "watchStorage" });
       await Promise.resolve();
     });
 
-    expect(screen.getByRole("alert")).toHaveTextContent("Disk full");
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not save or load products");
     expect(screen.getByLabelText("Product name")).toHaveValue("Laptop OLED");
 
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
@@ -190,11 +190,11 @@ describe("AddWatchPage", () => {
     "shows %s edit errors and offers the Products breadcrumb",
     async (kind) => {
       if (kind === "missing") api.listWatches.mockResolvedValue([]);
-      else api.listWatches.mockRejectedValue(new Error("Storage unavailable"));
+      else api.listWatches.mockRejectedValue({ code: "watchStorage" });
       renderPage("/watches/7/edit");
 
       expect(await screen.findByRole("alert")).toHaveTextContent(
-        kind === "missing" ? "This product no longer exists." : "Storage unavailable",
+        kind === "missing" ? "This product no longer exists." : "Could not save or load products",
       );
       expect(screen.queryByLabelText("Product name")).not.toBeInTheDocument();
 
@@ -206,7 +206,7 @@ describe("AddWatchPage", () => {
 
   it.each([true, false])("ignores a late edit load %s result", async (succeeds) => {
     let resolve!: (value: Watch[]) => void;
-    let reject!: (reason: Error) => void;
+    let reject!: (reason: unknown) => void;
     api.listWatches.mockReturnValue(
       new Promise<Watch[]>((res, rej) => {
         resolve = res;
@@ -275,12 +275,14 @@ describe("AddWatchPage", () => {
   });
 
   it("keeps the form after a save error and allows retry", async () => {
-    api.createWatch.mockRejectedValueOnce(new Error("Disk full"));
+    api.createWatch.mockRejectedValueOnce({ code: "watchStorage" });
 
     renderPage();
     fireEvent.change(screen.getByLabelText("Product name"), { target: { value: "RTX 5070" } });
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
-    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Disk full"));
+    await waitFor(() =>
+      expect(screen.getByRole("alert")).toHaveTextContent("Could not save or load products"),
+    );
     expect(screen.getByLabelText("Product name")).toHaveValue("RTX 5070");
 
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));

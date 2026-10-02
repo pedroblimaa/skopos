@@ -24,6 +24,7 @@ describe("Telegram desktop flows", () => {
     first = false;
 
     await browser.execute(() => {
+      localStorage.setItem("skopos.language", "en");
       window.history.replaceState({}, "", "/");
     });
   });

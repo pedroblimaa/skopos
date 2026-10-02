@@ -8,6 +8,7 @@ import type {
   SessionStatus,
 } from "./telegram.model";
 import type { CreateWatch, Watch } from "./watch.model";
+import { isAppMessage, type AppMessage } from "./app-message";
 
 export type { CodeRequest, LoginResult, QrToken, SessionStatus } from "./telegram.model";
 
@@ -28,22 +29,16 @@ export const telegram = {
     onEvent<SessionStatus>("telegram:auth-changed", callback),
   onPasswordRequired: (callback: (hint: string | null) => void) =>
     onEvent<string | null>("telegram:password-required", callback),
-  onError: (callback: (message: string) => void) =>
-    onEvent<string>("telegram:auth-error", callback),
+  onError: (callback: (message: AppMessage) => void) =>
+    onEvent<AppMessage>("telegram:auth-error", callback),
 };
-
-export function errorMessage(error: unknown): string {
-  if (isCodeSubmissionError(error)) return error.message;
-
-  return error instanceof Error ? error.message : String(error);
-}
 
 export function isCodeSubmissionError(error: unknown): error is CodeSubmissionError {
   if (typeof error !== "object" || error === null) return false;
 
   return (
     "message" in error &&
-    typeof error.message === "string" &&
+    isAppMessage(error.message) &&
     "canRetryCode" in error &&
     typeof error.canRetryCode === "boolean"
   );

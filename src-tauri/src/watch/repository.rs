@@ -1,3 +1,4 @@
+use crate::app_message::AppMessage;
 use libsql::{params, Builder};
 use serde::{Deserialize, Serialize};
 use std::path::PathBuf;
@@ -26,12 +27,12 @@ pub enum WatchError {
 }
 
 impl WatchError {
-    pub fn message(&self) -> String {
+    pub fn message(&self) -> AppMessage {
         match self {
-            Self::InvalidPhrase => "Enter every search phrase before saving".to_owned(),
-            Self::InvalidPrice => "Enter a valid price greater than zero".to_owned(),
-            Self::NotFound => "This product no longer exists".to_owned(),
-            Self::Storage => "Could not save or load products on this device".to_owned(),
+            Self::InvalidPhrase => AppMessage::InvalidPhrase,
+            Self::InvalidPrice => AppMessage::InvalidPrice,
+            Self::NotFound => AppMessage::ProductNotFound,
+            Self::Storage => AppMessage::WatchStorage,
         }
     }
 }

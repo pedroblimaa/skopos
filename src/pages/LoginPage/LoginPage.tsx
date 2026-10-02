@@ -1,3 +1,4 @@
+import { useLanguage } from "../../i18n/useLanguage";
 import { LockKeyhole, QrCode, Send, Smartphone } from "lucide-react";
 import { Button } from "../../components/Button/Button";
 import { Card } from "../../components/Card/Card";
@@ -10,6 +11,7 @@ import { useTelegramLogin, type LoginMethod } from "./useTelegramLogin";
 import "./LoginPage.css";
 
 export function LoginPage() {
+  const { t, message } = useLanguage();
   const {
     method,
     step,
@@ -37,7 +39,7 @@ export function LoginPage() {
   if (isRestoringSession) {
     return (
       <main className="auth-page">
-        <SessionLoading label="Restoring your session…" />
+        <SessionLoading label={t("restoringSession")} />
       </main>
     );
   }
@@ -47,36 +49,37 @@ export function LoginPage() {
       <div className="auth-layout">
         <div className="brand">
           <QrCode size={22} aria-hidden="true" />
-          <span>Skopos · Telegram Login</span>
+          <span>Skopos · {t("telegramLogin")}</span>
         </div>
-        <h1 className="auth-heading">Authorize Telegram</h1>
+        <h1 className="auth-heading">{t("authorizeTelegram")}</h1>
         <Card>
           <Tabs<LoginMethod>
+            label={t("loginMethod")}
             active={method}
             onChange={selectMethod}
             disabled={busy}
             tabs={[
-              { id: "qr", label: "Quick QR Scan", icon: <QrCode size={18} /> },
-              { id: "phone", label: "Phone Number", icon: <Smartphone size={18} /> },
+              { id: "qr", label: t("quickQrScan"), icon: <QrCode size={18} /> },
+              { id: "phone", label: t("phoneNumber"), icon: <Smartphone size={18} /> },
             ]}
           />
-          {error && (
+          {error !== null && (
             <p role="alert" className="error">
-              {error}
+              {message(error)}
             </p>
           )}
           {method === "qr" && step !== "password" && (
             <div className="qr-content">
               <QrDisplay token={qr} />
-              {error && (
+              {error !== null && (
                 <Button variant="quiet" onClick={() => void retryQr()}>
-                  Try again
+                  {t("tryAgain")}
                 </Button>
               )}
               <ol className="instructions">
-                <li>Open Telegram on your phone</li>
-                <li>Go to Settings → Devices → Link Desktop Device</li>
-                <li>Scan this dynamic code to confirm pairing</li>
+                <li>{t("openTelegram")}</li>
+                <li>{t("linkDevice")}</li>
+                <li>{t("scanCode")}</li>
               </ol>
             </div>
           )}
@@ -89,7 +92,7 @@ export function LoginPage() {
             >
               <FormField
                 id="phone"
-                label="Account mobile number"
+                label={t("accountMobileNumber")}
                 type="tel"
                 autoComplete="tel"
                 placeholder="+55 11 99999 9999"
@@ -101,11 +104,9 @@ export function LoginPage() {
               />
               <Button disabled={busy} type="submit">
                 <Send size={18} />
-                {busy ? "Sending…" : "Send login code"}
+                {busy ? t("sending") : t("sendLoginCode")}
               </Button>
-              <p className="form-help">
-                Include your country code. Telegram chooses how to deliver the code.
-              </p>
+              <p className="form-help">{t("phoneHelp")}</p>
             </form>
           )}
           {method === "phone" && step === "code" && (
@@ -115,16 +116,16 @@ export function LoginPage() {
                 void submitCode(event);
               }}
             >
-              <p className="form-help">{delivery}</p>
+              {delivery !== null && <p className="form-help">{message(delivery)}</p>}
               <VerificationCodeInput value={code} onChange={setCode} length={codeLength} />
               <Button
                 disabled={busy || !code || (codeLength !== null && code.length !== codeLength)}
                 type="submit"
               >
-                {busy ? "Checking…" : "Verify code"}
+                {busy ? t("checking") : t("verifyCode")}
               </Button>
               <Button variant="quiet" type="button" onClick={changePhone}>
-                Change phone number
+                {t("changePhoneNumber")}
               </Button>
             </form>
           )}
@@ -136,10 +137,10 @@ export function LoginPage() {
               }}
             >
               <LockKeyhole className="password-icon" size={32} aria-hidden="true" />
-              <p>Enter your Telegram two-step verification password.</p>
+              <p>{t("passwordInstructions")}</p>
               <FormField
                 id="password"
-                label="Password"
+                label={t("password")}
                 type="password"
                 autoComplete="current-password"
                 value={password}
@@ -148,9 +149,9 @@ export function LoginPage() {
                 }}
                 required
               />
-              {hint && <p className="form-help">Hint: {hint}</p>}
+              {hint && <p className="form-help">{t("passwordHint", { hint })}</p>}
               <Button disabled={busy} type="submit">
-                {busy ? "Checking…" : "Continue"}
+                {busy ? t("checking") : t("continue")}
               </Button>
             </form>
           )}

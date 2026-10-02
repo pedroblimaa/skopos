@@ -1,4 +1,5 @@
 use super::adapter::SessionApi;
+use crate::app_message::AppMessage;
 use crate::telegram::{
     client::SessionStatus,
     error::{AuthError, AuthResult},
@@ -21,7 +22,7 @@ pub(super) async fn sign_out<A: SessionApi, E: SessionEvents>(
     let generation = {
         let mut login = state.login.lock().await;
         if matches!(login.step, LoginStep::SigningOut) {
-            return Err(AuthError::Message("Sign-out is already in progress."));
+            return Err(AuthError::Message(AppMessage::SignOutInProgress));
         }
 
         login.begin(LoginStep::SigningOut)

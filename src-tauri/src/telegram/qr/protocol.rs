@@ -1,3 +1,4 @@
+use crate::app_message::AppMessage;
 use crate::telegram::{
     client::{credentials, ClientContext},
     error::{AuthError, AuthResult},
@@ -64,8 +65,8 @@ pub(super) async fn export_qr_with<A: QrSender>(
             expires_at: token.expires as u64,
         })),
         tl::enums::auth::LoginToken::Success(_) => Ok(QrOutcome::Authorized),
-        tl::enums::auth::LoginToken::MigrateTo(_) => Err(AuthError::Message(
-            "Telegram could not complete the QR migration. Try again.",
-        )),
+        tl::enums::auth::LoginToken::MigrateTo(_) => {
+            Err(AuthError::Message(AppMessage::QrMigrationFailed))
+        }
     }
 }

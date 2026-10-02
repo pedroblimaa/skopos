@@ -67,7 +67,7 @@ Read the applicable reference before implementing or reviewing the corresponding
 
 - Keep the frontend and Rust host separately testable. Prefer typed interfaces and small pure functions for parsing and matching.
 - Keep secrets, Telegram sessions, databases, build output, and local environment files out of Git. Isolate automated tests from real Telegram accounts, credentials, and production session files.
-- Run `pnpm check` before handing off implementation work. Keep both production TypeScript and Rust at or above 96% measured line coverage; never lower thresholds or exclude production code to make a change pass.
+- Use focused local tests and `pnpm check:local` before local handoff; report full verification as pending CI. CI runs the full frontend, Rust coverage, desktop E2E, and production build gates. Keep both production TypeScript and Rust at or above 96% measured line coverage; never lower thresholds or exclude production code to make a change pass. See `docs/quality-checks.md` for the local budget and stage commands.
 - Add or update a desktop E2E scenario for every implemented feature flow. Keep E2E mocking plugins and permissions out of production builds.
 - Changes to authentication, session storage, dependencies, capabilities, quality rules, or thresholds need explicit human review. Fix lint findings rather than weakening rules or adding blanket suppressions; any necessary local suppression must explain its concrete constraint.
 

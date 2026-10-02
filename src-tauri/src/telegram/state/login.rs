@@ -1,3 +1,4 @@
+use crate::app_message::AppMessage;
 use grammers_client::client::PasswordToken;
 use tokio::sync::{Mutex, Notify, OnceCell};
 
@@ -45,9 +46,7 @@ impl LoginState {
 
     pub(in crate::telegram) fn begin_login(&mut self, step: LoginStep) -> AuthResult<u64> {
         if matches!(self.step, LoginStep::SigningOut) {
-            return Err(AuthError::Message(
-                "Sign-out is still in progress. Try again shortly.",
-            ));
+            return Err(AuthError::Message(AppMessage::SignOutInProgress));
         }
 
         Ok(self.begin(step))
@@ -58,7 +57,7 @@ impl LoginState {
             LoginStep::Phone { phone, hash } => (phone, hash),
             other => {
                 self.step = other;
-                return Err(AuthError::Message("Request a login code first."));
+                return Err(AuthError::Message(AppMessage::RequestCodeFirst));
             }
         };
 
@@ -71,7 +70,7 @@ impl LoginState {
             LoginStep::Password(token) => token,
             other => {
                 self.step = other;
-                return Err(AuthError::Message("Start Telegram login again."));
+                return Err(AuthError::Message(AppMessage::RestartLogin));
             }
         };
 

@@ -1,13 +1,15 @@
-import { useId, useState, type ReactNode } from "react";
+import { useId, useState, type ButtonHTMLAttributes, type ReactNode } from "react";
 import { Info } from "lucide-react";
 import "./InfoTooltip.css";
 
 interface Props {
   label: string;
   children: ReactNode;
+  trigger?: ReactNode;
+  buttonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
 }
 
-export function InfoTooltip({ label, children }: Props) {
+export function InfoTooltip({ label, children, trigger, buttonProps }: Props) {
   const id = useId();
   const [isDismissed, setIsDismissed] = useState(false);
 
@@ -26,12 +28,13 @@ export function InfoTooltip({ label, children }: Props) {
       }}
     >
       <button
-        className="info-tooltip-trigger"
+        {...buttonProps}
+        className={buttonProps?.className ?? "info-tooltip-trigger"}
         type="button"
         aria-label={label}
         aria-describedby={id}
       >
-        <Info size={17} aria-hidden="true" />
+        {trigger ?? <Info size={17} aria-hidden="true" />}
       </button>
       <span className="info-tooltip-content" id={id} role="tooltip">
         {children}

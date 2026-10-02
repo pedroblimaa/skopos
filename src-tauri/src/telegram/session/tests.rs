@@ -1,3 +1,4 @@
+use crate::app_message::AppMessage;
 use crate::telegram::error::AuthResult;
 use std::sync::{
     atomic::{AtomicUsize, Ordering},
@@ -51,12 +52,10 @@ async fn status_reports_authorized_and_storage_failure() {
     let api = FakeApi::new();
     *api.status.lock().unwrap() = Some(Err(AuthError::Storage));
 
-    assert!(session_status(&api)
-        .await
-        .err()
-        .unwrap()
-        .message()
-        .contains("local Telegram session"));
+    assert_eq!(
+        session_status(&api).await.err().unwrap().message(),
+        AppMessage::AuthStorage
+    );
 }
 
 #[tokio::test]
@@ -70,7 +69,7 @@ async fn sign_out_emits_only_after_success() {
     assert!(matches!(state.login.lock().await.step, LoginStep::Idle));
 
     let api = FakeApi::new();
-    *api.sign_out.lock().unwrap() = Some(Err(AuthError::Message("Network unavailable")));
+    *api.sign_out.lock().unwrap() = Some(Err(AuthError::Message(AppMessage::AuthNetwork)));
 
     assert_eq!(
         sign_out(&state, &api, &events)
@@ -78,7 +77,7 @@ async fn sign_out_emits_only_after_success() {
             .err()
             .unwrap()
             .message(),
-        "Network unavailable"
+        AppMessage::AuthNetwork
     );
     assert_eq!(events.0.load(Ordering::SeqCst), 1);
     assert!(matches!(state.login.lock().await.step, LoginStep::Idle));
@@ -93,6 +92,6 @@ async fn sign_out_rejects_concurrent_request() {
 
     assert_eq!(
         result.err().unwrap().message(),
-        "Sign-out is already in progress."
+        AppMessage::SignOutInProgress
     );
 }

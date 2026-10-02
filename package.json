@@ -19,8 +19,13 @@
     "test:e2e": "wdio run wdio.conf.ts",
     "test:watch": "vitest",
     "check:rust": "cargo fmt --manifest-path src-tauri/Cargo.toml -- --check && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings && cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --features e2e -- -D warnings && cargo test --manifest-path src-tauri/Cargo.toml",
-    "check": "pnpm format:check && pnpm lint && pnpm typecheck && pnpm test:coverage && pnpm build && pnpm check:rust && pnpm test:rust:coverage",
-    "lint:colors": "node scripts/check-color-tokens.mjs"
+    "check": "node scripts/check.mjs",
+    "lint:colors": "node scripts/check-color-tokens.mjs",
+    "build:frontend": "vite build",
+    "lint:rust": "cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets -- -D warnings && cargo clippy --manifest-path src-tauri/Cargo.toml --locked --all-targets --features e2e -- -D warnings",
+    "check:local": "node scripts/check.mjs --group=local",
+    "check:frontend": "node scripts/check.mjs --group=frontend",
+    "check:native": "node scripts/check.mjs --group=native"
   },
   "dependencies": {
     "@tauri-apps/api": "^2",

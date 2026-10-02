@@ -1,3 +1,4 @@
+import { useLanguage } from "../../i18n/useLanguage";
 import { QRCodeSVG } from "qrcode.react";
 import { RefreshCw } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -5,6 +6,7 @@ import type { QrToken } from "../../telegram";
 import "./QrDisplay.css";
 
 export function QrDisplay({ token }: { token: QrToken | null }) {
+  const { t } = useLanguage();
   const [now, setNow] = useState(() => Date.now());
 
   useEffect(() => {
@@ -21,7 +23,7 @@ export function QrDisplay({ token }: { token: QrToken | null }) {
 
   return (
     <div className="qr-frame">
-      <div className="qr-frame__image" aria-label="Telegram login QR code">
+      <div className="qr-frame__image" aria-label={t("loginQrCode")}>
         {token && seconds > 0 ? (
           <QRCodeSVG
             value={token.url}
@@ -32,13 +34,13 @@ export function QrDisplay({ token }: { token: QrToken | null }) {
           />
         ) : (
           <div className="qr-placeholder">
-            {token ? "Refreshing QR code…" : "Connecting to Telegram…"}
+            {token ? t("refreshingQr") : t("connectingTelegram")}
           </div>
         )}
       </div>
       <div className="qr-expiry">
         <RefreshCw size={15} aria-hidden="true" />
-        {token && seconds > 0 ? `Expires in ${clock}` : "Requesting QR code"}
+        {token && seconds > 0 ? t("expiresIn", { clock }) : t("requestingQr")}
       </div>
     </div>
   );

@@ -2,6 +2,7 @@ use super::{
     adapter::QrApi,
     protocol::{QrOutcome, QrToken},
 };
+use crate::app_message::AppMessage;
 use crate::telegram::{
     client::SessionStatus,
     error::AuthError,
@@ -13,7 +14,7 @@ pub(super) trait QrEvents {
     fn token(&self, token: &QrToken);
     fn authenticated(&self, status: SessionStatus);
     fn password_required(&self, hint: Option<String>);
-    fn error(&self, message: String);
+    fn error(&self, message: AppMessage);
 }
 
 pub(super) async fn run_qr_login<A: QrApi, E: QrEvents>(
@@ -82,7 +83,7 @@ async fn complete_qr_login<A: QrApi, E: QrEvents>(
             events.authenticated(status);
         }
         Ok(_) => {
-            events.error("Telegram did not finish QR login. Scan the refreshed code again.".into());
+            events.error(AppMessage::QrLoginIncomplete);
         }
         Err(error) => {
             events.error(error.message());

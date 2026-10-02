@@ -16,6 +16,7 @@ describe("product desktop flows", () => {
     for (const product of products) await command("delete_watch", { id: product.id });
 
     await browser.execute(() => {
+      localStorage.setItem("skopos.language", "en");
       window.history.replaceState({}, "", "/connected");
     });
     await enableApp();
@@ -155,13 +156,28 @@ describe("product desktop flows", () => {
     await reloadProducts();
     await $("strong=RTX 5070").waitForDisplayed();
     assert.deepEqual(await command<Watch[]>("list_watches"), [other]);
-    await assert.rejects(
-      command("update_watch", {
-        id: saved.id,
-        input: { phrases: ["Deleted"], maxPriceCents: null },
-      }),
-      /no longer exists/,
-    );
+
+    const error = await browser.execute(async (id) => {
+      const api = (
+        window as Window & {
+          __TAURI__: {
+            core: { invoke: (name: string, args: Record<string, unknown>) => Promise<unknown> };
+          };
+        }
+      ).__TAURI__;
+
+      try {
+        await api.core.invoke("update_watch", {
+          id,
+          input: { phrases: ["Deleted"], maxPriceCents: null },
+        });
+        return null;
+      } catch (reason) {
+        return reason;
+      }
+    }, saved.id);
+
+    assert.deepEqual(error, { code: "productNotFound" });
   });
 
   it("shows validation and a missing-product save error without losing entered values", async () => {
@@ -193,8 +209,11 @@ describe("product desktop flows", () => {
   it("reveals name matching help on focus and dismisses with Escape", async () => {
     await $("button=Add product").click();
     const trigger = $("button[aria-label='How search names match']");
-    const tooltip = $("[role=tooltip]");
     await trigger.waitForDisplayed();
+    const tooltipId = await trigger.getAttribute("aria-describedby");
+    assert.ok(tooltipId);
+    const tooltip = $(`#${tooltipId}`);
+
     assert.equal(await tooltip.isDisplayed(), false);
 
     await trigger.click();
@@ -206,9 +225,30 @@ describe("product desktop flows", () => {
     await $("#phrase-0").click();
     assert.equal(await $("#phrase-0").isFocused(), true);
 
-    await trigger.click();
+    await browser.execute(() => {
+      document
+        .querySelector<HTMLButtonElement>("button[aria-label='How search names match']")
+        ?.focus();
+    });
     assert.equal(await trigger.isFocused(), true);
-    await tooltip.waitForDisplayed();
+    try {
+      await tooltip.waitForDisplayed();
+    } catch (error) {
+      const state = await browser.execute((id) => {
+        const tooltip = document.getElementById(id);
+        const wrapper = tooltip?.parentElement;
+        return {
+          active: document.activeElement?.getAttribute("aria-label"),
+          documentFocused: document.hasFocus(),
+          dismissed: wrapper?.getAttribute("data-dismissed"),
+          focusWithin: wrapper?.matches(":focus-within"),
+          visibility: tooltip && getComputedStyle(tooltip).visibility,
+          opacity: tooltip && getComputedStyle(tooltip).opacity,
+        };
+      }, tooltipId);
+      if (error instanceof Error) error.message += ` Tooltip state: ${JSON.stringify(state)}`;
+      throw error;
+    }
   });
 
   it("opens and dismisses the profile menu, then signs out without deleting products", async () => {

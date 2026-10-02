@@ -2,6 +2,7 @@ use super::{
     workflow::{self, validate_phone, AuthEvents},
     CodeRequest, LoginResult,
 };
+use crate::app_message::AppMessage;
 use crate::telegram::{
     client::SessionStatus,
     state::{AuthState, LoginStep},
@@ -12,7 +13,7 @@ use tauri::{AppHandle, Emitter, State};
 #[derive(Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct CodeSubmissionError {
-    message: String,
+    message: AppMessage,
     can_retry_code: bool,
 }
 
@@ -21,7 +22,7 @@ pub async fn request_phone_code(
     app: AppHandle,
     state: State<'_, AuthState>,
     phone: String,
-) -> Result<CodeRequest, String> {
+) -> Result<CodeRequest, AppMessage> {
     validate_phone(&phone).map_err(|error| error.message())?;
 
     let context = state.client(&app).await.map_err(|error| error.message())?;
@@ -39,7 +40,7 @@ pub async fn submit_phone_code(
 ) -> Result<LoginResult, CodeSubmissionError> {
     if code.trim().is_empty() {
         return Err(CodeSubmissionError {
-            message: "Enter the verification code.".into(),
+            message: AppMessage::MissingCode,
             can_retry_code: true,
         });
     }
@@ -66,7 +67,7 @@ pub async fn submit_password(
     app: AppHandle,
     state: State<'_, AuthState>,
     password: String,
-) -> Result<LoginResult, String> {
+) -> Result<LoginResult, AppMessage> {
     let context = state.client(&app).await.map_err(|error| error.message())?;
 
     workflow::submit_password(&state, context, &TauriEvents(&app), password)

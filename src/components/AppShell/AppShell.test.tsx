@@ -1,4 +1,5 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { render } from "../../test-setup";
+import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AppShell } from "./AppShell";
@@ -7,7 +8,6 @@ import type { SessionStatus } from "../../telegram";
 const api = vi.hoisted(() => ({ status: vi.fn(), signOut: vi.fn() }));
 vi.mock("../../telegram", () => ({
   telegram: api,
-  errorMessage: (error: unknown) => String(error),
 }));
 beforeEach(() => {
   vi.resetAllMocks();
@@ -30,6 +30,39 @@ function renderShell() {
 }
 
 describe("AppShell", () => {
+  it("switches the language above sign-out and retranslates an existing error", async () => {
+    api.signOut.mockRejectedValueOnce({ code: "authNetwork" });
+    renderShell();
+    await screen.findByText("Pedro");
+    const portuguese = screen.getByRole("button", { name: "Português (Brasil)" });
+    const english = screen.getByRole("button", { name: "English" });
+
+    expect(english).toHaveAttribute("aria-pressed", "true");
+    expect(portuguese).toHaveAttribute("aria-pressed", "false");
+    expect(
+      portuguese.compareDocumentPosition(screen.getByRole("button", { name: "Sign out" })) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach Telegram");
+
+    fireEvent.click(portuguese);
+
+    expect(screen.getByRole("group", { name: "Idioma" })).toBeInTheDocument();
+    expect(portuguese).toHaveAttribute("aria-pressed", "true");
+    expect(english).toHaveAttribute("aria-pressed", "false");
+    expect(screen.getByRole("button", { name: "Sair" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Não foi possível acessar o Telegram");
+    expect(api.status).toHaveBeenCalledTimes(1);
+    expect(api.signOut).toHaveBeenCalledTimes(1);
+
+    fireEvent.click(english);
+
+    expect(screen.getByRole("group", { name: "Language" })).toBeInTheDocument();
+    expect(localStorage.getItem("skopos.language")).toBe("en");
+  });
+
   it("loads the profile before showing protected content", async () => {
     renderShell();
 
@@ -62,18 +95,18 @@ describe("AppShell", () => {
   });
 
   it("reports profile errors without exposing protected content", async () => {
-    api.status.mockRejectedValue(new Error("Offline"));
+    api.status.mockRejectedValue({ code: "authNetwork" });
 
     renderShell();
 
-    expect(await screen.findByRole("alert")).toHaveTextContent("Offline");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach Telegram");
     expect(screen.queryByRole("status")).not.toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Products" })).not.toBeInTheDocument();
   });
 
   it("keeps the session after sign-out failure and allows retry", async () => {
     api.status.mockResolvedValue({ authorized: true, displayName: null });
-    api.signOut.mockRejectedValueOnce(new Error("Network unavailable"));
+    api.signOut.mockRejectedValueOnce({ code: "authNetwork" });
 
     renderShell();
     await screen.findByText("Telegram user");
@@ -81,7 +114,7 @@ describe("AppShell", () => {
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(screen.getByRole("button", { name: "Signing out…" })).toBeDisabled();
-    expect(await screen.findByRole("alert")).toHaveTextContent("Network unavailable");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not reach Telegram");
     expect(screen.getByRole("heading", { name: "Products" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));

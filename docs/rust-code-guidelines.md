@@ -64,7 +64,7 @@ The service owns the transition; the command does not reproduce it. Use project 
 - Unit test pure validation, Telegram response classification, error mapping, and state transitions. Test the boundaries between QR, phone code, password, cancellation, restoration, and sign-out.
 - For code that uses Telegram, isolate the protocol boundary enough to test outcomes without a real account. Add an abstraction only when it removes a concrete testing or coupling problem.
 - Review the unhappy paths: missing `.env` credentials, expired QR, interrupted request, concurrent login attempts, network loss, migration, invalid code/password, rate limit, failed persistence, and sign-out.
-- Run `cargo fmt`, Clippy, and tests through the repository's `pnpm check` script. Run `pnpm tauri build --no-bundle` when a change affects native build behavior.
+- For local handoff, run focused Rust tests for changed native behavior plus the checks in `docs/quality-checks.md`. CI runs Clippy, combined Rust/unit/desktop coverage, and the production native build. `pnpm check` remains available for complete local verification; rerun only affected stages after corrections. Run a local production build when diagnosing native build behavior.
 - Treat Clippy's complexity and length warnings as prompts to inspect a function, not as hard architecture rules. Avoid suppressing a lint without a local reason.
 
 ## Enforced maintainability checks

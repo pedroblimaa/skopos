@@ -1,3 +1,4 @@
+mod app_message;
 mod telegram;
 mod watch;
 #[cfg(feature = "e2e")]
