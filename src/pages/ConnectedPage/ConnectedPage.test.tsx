@@ -3,9 +3,17 @@ import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { ConnectedPage } from "./ConnectedPage";
+import { SearchContext } from "./search-context";
+import { useProductSearch } from "./useProductSearch";
 import type { Watch } from "../../watch.model";
 
-const api = vi.hoisted(() => ({ listWatches: vi.fn(), deleteWatch: vi.fn() }));
+const api = vi.hoisted(() => ({
+  listWatches: vi.fn(),
+  deleteWatch: vi.fn(),
+  loadSearchResults: vi.fn(),
+  searchProducts: vi.fn(),
+  clearSearchResults: vi.fn(),
+}));
 vi.mock("../../telegram", () => ({
   telegram: api,
 }));
@@ -17,14 +25,24 @@ beforeEach(() => {
   vi.resetAllMocks();
   api.listWatches.mockResolvedValue(products);
   api.deleteWatch.mockResolvedValue(undefined);
+  api.loadSearchResults.mockResolvedValue({ matches: [], summary: null });
 });
 afterEach(cleanup);
+
+function SearchPage() {
+  const search = useProductSearch();
+  return (
+    <SearchContext.Provider value={search}>
+      <ConnectedPage />
+    </SearchContext.Provider>
+  );
+}
 
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={["/connected"]}>
       <Routes>
-        <Route path="/connected" element={<ConnectedPage />} />
+        <Route path="/connected" element={<SearchPage />} />
         <Route path="/watches/new" element={<h1>Add product</h1>} />
         <Route path="/watches/:watchId/edit" element={<h1>Edit product</h1>} />
       </Routes>
@@ -36,12 +54,16 @@ describe("Products", () => {
   it("shows saved products, price ceilings, and a link to edit each product", async () => {
     renderPage();
 
-    expect(screen.getByRole("status")).toHaveTextContent("Loading products");
+    expect(screen.getByText(/Loading products/)).toBeInTheDocument();
 
-    const laptop = await screen.findByRole("link", { name: /Laptop Vivobook S14/ });
+    const laptop = await screen.findByRole("link", { name: "Laptop Vivobook S14" });
     expect(laptop).toHaveAttribute("href", "/watches/1/edit");
-    expect(laptop).toHaveTextContent(/2 names · Up to R\$\s*3\.500,00/);
-    expect(screen.getByRole("link", { name: /RTX 5070/ })).toHaveTextContent("1 name · Any price");
+    expect(laptop.closest(".connected-watch-details")).toHaveTextContent(
+      /2 names · Up to R\$\s*3\.500,00/,
+    );
+    expect(
+      screen.getByRole("link", { name: "RTX 5070" }).closest(".connected-watch-details"),
+    ).toHaveTextContent("1 name · Any price");
 
     fireEvent.click(laptop);
 

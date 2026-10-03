@@ -14,6 +14,9 @@ impl SessionApi for ClientContext {
     }
 
     async fn sign_out(&self) -> AuthResult<()> {
-        self.client.sign_out().await.map_err(AuthError::from)
+        self.client.sign_out().await.map_err(AuthError::from)?;
+        *self.account_id.lock().await = None;
+
+        Ok(())
     }
 }

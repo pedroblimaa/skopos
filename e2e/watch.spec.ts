@@ -24,7 +24,7 @@ describe("product desktop flows", () => {
   });
 
   it("creates and reloads a locally saved product", async () => {
-    await $("button=Add product").click();
+    await $("button[aria-label='Add product']").click();
     await $("#phrase-0").setValue("Laptop Vivobook S14");
     await $("button=Add alternative name").click();
     await $("#phrase-1").setValue("Asus Vivobook 14");
@@ -67,7 +67,7 @@ describe("product desktop flows", () => {
   });
 
   it("preserves a new draft when a save finishes after leaving the previous form", async () => {
-    await $("button=Add product").click();
+    await $("button[aria-label='Add product']").click();
     await $("#phrase-0").setValue("First product");
     await browser.execute(() => {
       const testWindow = window as unknown as Window & {
@@ -123,7 +123,7 @@ describe("product desktop flows", () => {
       await $("button=Cancel").click();
       await $("h1=Products").waitForDisplayed();
 
-      await $("button=Add product").click();
+      await $("button[aria-label='Add product']").click();
       await $("#phrase-0").setValue("Second product");
       await finishProductSave();
 
@@ -210,7 +210,7 @@ describe("product desktop flows", () => {
     await command("focus_window");
     await browser.waitUntil(() => browser.execute(() => document.hasFocus()));
 
-    await $("button=Add product").click();
+    await $("button[aria-label='Add product']").click();
     const trigger = $("button[aria-label='How search names match']");
     await trigger.waitForDisplayed();
     const tooltipId = await trigger.getAttribute("aria-describedby");

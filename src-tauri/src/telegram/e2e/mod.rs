@@ -5,6 +5,7 @@ pub(crate) mod commands;
 #[cfg(test)]
 mod context;
 mod fixture;
+pub(in crate::telegram) mod history;
 mod responses;
 
 #[cfg(test)]

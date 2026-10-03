@@ -26,6 +26,7 @@ pub(crate) struct Scenario {
     pub(in crate::telegram) chat_photos: bool,
     pub(in crate::telegram) photo_error: bool,
     pub(in crate::telegram) profile_photo: bool,
+    pub(in crate::telegram) search_error: bool,
 }
 
 #[derive(Default)]
@@ -107,6 +108,9 @@ impl Fixture {
             tl::functions::messages::GetDialogs::CONSTRUCTOR_ID => {
                 Ok(self.get_dialogs(body)?.to_bytes())
             }
+            tl::functions::messages::GetHistory::CONSTRUCTOR_ID => {
+                Ok(self.get_history(body)?.to_bytes())
+            }
             tl::functions::upload::GetFile::CONSTRUCTOR_ID => Ok(self.get_file()?.to_bytes()),
             tl::functions::auth::SendCode::CONSTRUCTOR_ID => Ok(self.send_code()?.to_bytes()),
             tl::functions::auth::SignIn::CONSTRUCTOR_ID => self.sign_in(body),
@@ -161,6 +165,44 @@ impl Fixture {
             request.folder_id == Some(1),
             self.scenario.chat_photos,
         ))
+    }
+
+    fn get_history(&self, body: &[u8]) -> Result<tl::enums::messages::Messages, InvocationError> {
+        if self.scenario.search_error {
+            return Err(InvocationError::Dropped);
+        }
+        let request = tl::functions::messages::GetHistory::from_bytes(body)
+            .map_err(|_| InvocationError::Dropped)?;
+        if request.offset_id != 0 {
+            return Ok(super::history::page(vec![]));
+        }
+        let peer: tl::enums::Peer = match request.peer {
+            tl::enums::InputPeer::Chat(peer) => tl::types::PeerChat {
+                chat_id: peer.chat_id,
+            }
+            .into(),
+            tl::enums::InputPeer::Channel(peer) => tl::types::PeerChannel {
+                channel_id: peer.channel_id,
+            }
+            .into(),
+            _ => return Err(InvocationError::Dropped),
+        };
+        let now = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_secs() as i32;
+
+        Ok(super::history::page(vec![
+            super::history::message(
+                peer.clone(),
+                10,
+                now - 60,
+                "Controle Ultimate Blue\nR$ 201\nCupom: SAVE\nhttps://shop.example/item",
+            ),
+            super::history::message(peer.clone(), 9, now - 120, "Controle R$ 800"),
+            super::history::message(peer.clone(), 8, now - 180, "Controle 10x R$ 50"),
+            super::history::message(peer, 7, now - 90_000, "Controle R$ 100"),
+        ]))
     }
 
     fn get_file(&self) -> Result<tl::enums::upload::File, InvocationError> {

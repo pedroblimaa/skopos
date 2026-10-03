@@ -2,16 +2,16 @@ use super::{Chat, ChatError, ChatKind};
 use libsql::{params, Builder};
 use std::{collections::HashSet, path::PathBuf};
 
-pub(super) struct ChatRepository {
+pub(in crate::telegram) struct ChatRepository {
     path: PathBuf,
 }
 
 impl ChatRepository {
-    pub(super) fn new(path: PathBuf) -> Self {
+    pub(in crate::telegram) fn new(path: PathBuf) -> Self {
         Self { path }
     }
 
-    pub(super) async fn get(&self, account: i64) -> Result<Vec<Chat>, ChatError> {
+    pub(in crate::telegram) async fn get(&self, account: i64) -> Result<Vec<Chat>, ChatError> {
         let connection = self.connect().await?;
         let mut rows = connection
             .query(

@@ -1,4 +1,11 @@
 export const staticMessageCodes = [
+  "openLinkFailed",
+  "searchStorage",
+  "searchFailed",
+  "searchBusy",
+  "searchNeedsProducts",
+  "searchNeedsChats",
+  "invalidSearchCutoff",
   "unexpectedError",
   "authStorage",
   "authCancelled",

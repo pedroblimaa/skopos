@@ -12,6 +12,19 @@ beforeEach(() => {
 });
 
 describe("Telegram IPC adapter", () => {
+  it("uses typed search commands and preserves cleanup cutoffs", async () => {
+    await telegram.searchProducts();
+    await telegram.loadSearchResults();
+    await telegram.clearSearchResults(null);
+    await telegram.clearSearchResults(150);
+
+    expect(api.invoke.mock.calls).toEqual([
+      ["search_products", undefined],
+      ["load_search_results", undefined],
+      ["clear_search_results", { before: null }],
+      ["clear_search_results", { before: 150 }],
+    ]);
+  });
   it("preserves opaque chat IDs and selection metadata across the bridge", async () => {
     const chat = {
       id: "channel:9007199254740993",

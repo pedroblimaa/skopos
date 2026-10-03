@@ -9,11 +9,18 @@ import type {
   TelegramChat,
 } from "./telegram.model";
 import type { CreateWatch, Watch } from "./watch.model";
+import type { SearchResults } from "./promotion.model";
 import { isAppMessage, type AppMessage } from "./app-message";
 
 export type { CodeRequest, LoginResult, QrToken, SessionStatus } from "./telegram.model";
 
 export const telegram = {
+  openPromotionLink: (url: string) =>
+    command<unknown>("open_promotion_link", { url }).then(() => {}),
+  searchProducts: () => command<SearchResults>("search_products"),
+  loadSearchResults: () => command<SearchResults>("load_search_results"),
+  clearSearchResults: (before: number | null) =>
+    command<unknown>("clear_search_results", { before }).then(() => {}),
   status: () => command<SessionStatus>("session_status"),
   getProfilePhoto: () => command<string | null>("get_profile_photo"),
   startQr: () => command<unknown>("start_qr_login").then(() => {}),

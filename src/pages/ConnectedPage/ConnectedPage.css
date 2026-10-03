@@ -2,7 +2,7 @@
   padding: 44px 24px;
 }
 .connected-watches {
-  width: min(100%, 720px);
+  width: min(100%, var(--page-content-width));
   margin: 0 auto;
 }
 .connected-watches-heading {
@@ -17,6 +17,11 @@
   font-family: var(--font-system);
   font-size: 28px;
   letter-spacing: -0.03em;
+}
+.connected-product-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 .connected-loading {
   margin: 0;
@@ -54,17 +59,39 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: var(--space-3);
+  gap: var(--space-6);
 }
-.connected-watch-list li {
+.connected-watch-list > li {
+  min-width: 0;
+}
+.connected-product-actions {
+  display: flex;
+  gap: var(--space-2);
+  align-items: center;
+  flex-shrink: 0;
+}
+.connected-search-status {
+  margin: 0;
+  color: var(--color-secondary);
+  font-size: 13px;
+  line-height: 1.5;
+}
+.connected-search-status p {
+  margin: 0 0 8px;
+}
+.connected-search-status a {
+  color: var(--color-link);
+}
+.connected-watch-row {
+  position: relative;
+  z-index: 1;
   border: 1px solid var(--color-separator);
   border-radius: var(--radius-panel);
   background: var(--color-surface);
-}
-.connected-watch-row {
+  box-shadow: var(--shadow-panel);
   display: flex;
   align-items: center;
-  padding-right: 12px;
+  padding: 0 12px 0 16px;
 }
 .connected-watch-link {
   display: flex;
@@ -92,6 +119,34 @@
   gap: var(--space-2);
   min-width: 0;
   flex: 1;
+}
+.connected-watch-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.connected-watch-name > a {
+  min-width: 0;
+}
+.connected-watch-link a {
+  color: inherit;
+  text-decoration: none;
+}
+.connected-watch-edit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: var(--radius-panel);
+}
+.connected-watch-edit:focus-visible::after {
+  outline: 2px solid var(--color-link);
+  outline-offset: 3px;
+}
+.connected-watch-name .info-tooltip,
+.connected-delete {
+  position: relative;
+  z-index: 1;
 }
 .connected-watch-details strong {
   overflow-wrap: anywhere;
@@ -127,23 +182,6 @@
   color: var(--color-danger);
   background: var(--color-danger-soft);
 }
-.connected-delete-confirm {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-  padding: 14px 16px;
-  border-top: 1px solid var(--color-separator);
-}
-.connected-delete-confirm p {
-  margin: 0;
-  font-size: 13px;
-  color: var(--color-danger);
-}
-.connected-delete-confirm > div {
-  display: flex;
-  gap: var(--space-2);
-}
 @media (max-width: 520px) {
   .connected-page {
     padding: 28px 16px;
@@ -155,14 +193,24 @@
   .connected-watches-heading h1 {
     font-size: 26px;
   }
-  .connected-delete-confirm {
-    align-items: flex-start;
-    flex-direction: column;
-  }
 }
 @media (prefers-reduced-motion: reduce) {
   .connected-watch-arrow,
   .connected-delete {
     transition: none;
+  }
+}
+
+.connected-search-spinner {
+  animation: search-spin 1.2s linear infinite;
+}
+@keyframes search-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .connected-search-spinner {
+    animation: none;
   }
 }

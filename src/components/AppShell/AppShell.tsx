@@ -10,9 +10,15 @@ import { useLanguage } from "../../i18n/useLanguage";
 import { ChatsContext } from "../../pages/ChatsPage/chats-context";
 import { useChatCache } from "../../pages/ChatsPage/useChatCache";
 import "./AppShell.css";
+import { SearchContext } from "../../pages/ConnectedPage/search-context";
+import { useProductSearch } from "../../pages/ConnectedPage/useProductSearch";
+import { WatchContext } from "../../pages/ConnectedPage/watch-context";
+import { useWatchCache } from "../../pages/ConnectedPage/useWatchCache";
 
 export function AppShell() {
   const chatCache = useChatCache();
+  const productSearch = useProductSearch();
+  const watchCache = useWatchCache();
   const { t, message, language, setLanguage } = useLanguage();
   const navigate = useNavigate();
   const { pathname } = useLocation();
@@ -120,6 +126,7 @@ export function AppShell() {
               aria-labelledby="app-language-label"
             >
               <InfoTooltip
+                variant="action"
                 label="Português (Brasil)"
                 trigger="PT-BR"
                 buttonProps={{
@@ -134,6 +141,7 @@ export function AppShell() {
                 Português (Brasil)
               </InfoTooltip>
               <InfoTooltip
+                variant="action"
                 label="English"
                 trigger="EN"
                 buttonProps={{
@@ -193,9 +201,13 @@ export function AppShell() {
       )}
       {status !== null && (
         <ChatsContext.Provider value={chatCache}>
-          <div className="app-page-transition" key={pathname}>
-            <Outlet />
-          </div>
+          <SearchContext.Provider value={productSearch}>
+            <WatchContext.Provider value={watchCache}>
+              <div className="app-page-transition" key={pathname}>
+                <Outlet />
+              </div>
+            </WatchContext.Provider>
+          </SearchContext.Provider>
         </ChatsContext.Provider>
       )}
       {!status && !error && <SessionLoading label={t("loadingProfile")} />}

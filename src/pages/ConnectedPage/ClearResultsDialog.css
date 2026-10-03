@@ -1,0 +1,24 @@
+.clear-results-dialog fieldset {
+  border: 0;
+  padding: 0;
+  margin: 20px 0;
+}
+.clear-results-dialog legend {
+  font-size: 13px;
+  font-weight: 600;
+  margin-bottom: 12px;
+}
+.clear-results-dialog fieldset > label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  margin-bottom: 12px;
+}
+.clear-results-dialog input[type="radio"] {
+  accent-color: var(--color-accent);
+}
+.clear-results-dialog .clear-results-date {
+  display: grid;
+  margin: 16px 0 0;
+}

@@ -18,6 +18,7 @@ pub(in crate::telegram) async fn test_context() -> (
             fixture: Some(std::sync::Arc::clone(&fixture)),
         },
         session,
+        account_id: std::sync::Arc::new(tokio::sync::Mutex::new(None)),
     };
 
     (context, fixture)
