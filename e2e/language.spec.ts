@@ -32,7 +32,7 @@ describe("desktop language and typography", () => {
 
   it("switches without clearing form values, validation, or the profile session", async () => {
     await startEnglish();
-    await $("button=Add product").click();
+    await $("button[aria-label='Add product']").click();
     await $("#phrase-0").setValue("Lava-louças LG VC2");
     await $("button=Add alternative name").click();
     await $("#phrase-1").setValue("LG dishwasher");
@@ -60,14 +60,14 @@ describe("desktop language and typography", () => {
     await $("button=Adicionar produto").click();
 
     await $("strong=Lava-louças LG VC2").waitForDisplayed();
-    const product = await $("a*=Lava-louças LG VC2").getText();
+    const product = await $(".connected-watch-details").getText();
     assert.match(product, /2 nomes/);
     assert.match(product.replace(/\s/g, ""), /AtéR\$3\.000,00/);
 
     await chooseLanguage("English");
 
     await $("h1=Products").waitForDisplayed();
-    const englishProduct = await $("a*=Lava-louças LG VC2").getText();
+    const englishProduct = await $(".connected-watch-details").getText();
     assert.match(englishProduct, /2 names/);
     assert.match(englishProduct.replace(/\s/g, ""), /UptoR\$3\.000,00/);
   });

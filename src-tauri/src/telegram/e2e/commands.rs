@@ -24,6 +24,9 @@ pub(crate) async fn configure(
 ) -> Result<(), String> {
     auth.login.lock().await.begin(LoginStep::Idle);
     auth.qr_update.notify_waiters();
+    if let Some(context) = auth.context.get() {
+        *context.account_id.lock().await = None;
+    }
 
     *state.0.lock().unwrap() = Fixture {
         scenario,

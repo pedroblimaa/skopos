@@ -1,55 +1,68 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Bell, ChevronRight, Plus, Trash2 } from "lucide-react";
+import { Bell, ChevronRight, Plus, Trash2, SearchX } from "lucide-react";
+import { InfoTooltip } from "../../components/InfoTooltip/InfoTooltip";
 import { Button } from "../../components/Button/Button";
 import { telegram } from "../../telegram";
-import type { Watch } from "../../watch.model";
 import { appError, type AppMessage } from "../../app-message";
 import { useLanguage } from "../../i18n/useLanguage";
 import "./ConnectedPage.css";
+import { useSearchResults } from "./search-context";
+import { ProductMatches } from "./ProductMatches";
+import { SearchStatus, SearchFeedback, SearchInformation } from "./SearchStatus";
+import { useWatches } from "./watch-context";
+import { DeleteWatchDialog } from "./DeleteWatchDialog";
 
 const currency = new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL" });
 
 export function ConnectedPage() {
   const { t, message } = useLanguage();
+  const search = useSearchResults();
+  const { load } = search;
+  const { isBusy: isSearchBusy, error: searchError } = search;
   const navigate = useNavigate();
-  const [watches, setWatches] = useState<Watch[]>([]);
+  const watchCache = useWatches();
+  const { watches, load: loadWatches } = watchCache;
   const [error, setError] = useState<AppMessage | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const isLoading = !watchCache.isLoaded && error === null;
   const [deleteId, setDeleteId] = useState<number | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<AppMessage | null>(null);
+
+  useEffect(() => {
+    if (!isSearchBusy && searchError === null) void load();
+  }, [load, isSearchBusy, searchError]);
 
   useEffect(() => {
     let isActive = true;
 
-    async function loadWatches() {
+    async function loadProducts() {
       try {
-        const savedWatches = await telegram.listWatches();
-        if (isActive) setWatches(savedWatches);
+        await loadWatches();
       } catch (reason) {
         if (isActive) setError(appError(reason));
-      } finally {
-        if (isActive) setIsLoading(false);
       }
     }
 
-    void loadWatches();
+    void loadProducts();
 
     return () => {
       isActive = false;
     };
-  }, []);
+  }, [loadWatches]);
 
   async function deleteWatch(id: number) {
     setIsDeleting(true);
-    setError(null);
+    setDeleteError(null);
 
     try {
       await telegram.deleteWatch(id);
-      setWatches((current) => current.filter((watch) => watch.id !== id));
+      watchCache.remove(id);
+      search.invalidate();
+      void load();
       setDeleteId(null);
     } catch (reason) {
-      setError(appError(reason));
+      setDeleteError(appError(reason));
     } finally {
       setIsDeleting(false);
     }
@@ -59,13 +72,15 @@ export function ConnectedPage() {
     <main className="connected-page">
       <section className="connected-watches" aria-labelledby="watches-heading">
         <div className="connected-watches-heading">
-          <div>
+          <div className="connected-product-title">
             <h1 id="watches-heading">{t("products")}</h1>
+            <SearchInformation search={search} />
           </div>
-          <Button onClick={() => void navigate("/watches/new")}>
-            <Plus size={17} aria-hidden="true" /> {t("addProduct")}
-          </Button>
+          <div className="connected-product-actions">
+            <SearchStatus search={search} isSearchDisabled={isLoading || watches.length === 0} />
+          </div>
         </div>
+        <SearchFeedback search={search} />
         {error !== null && (
           <p role="alert" className="error">
             {message(error)}
@@ -88,65 +103,88 @@ export function ConnectedPage() {
         )}
         {watches.length > 0 && (
           <ul className="connected-watch-list">
-            {watches.map((watch) => (
-              <li key={watch.id} className="interactive-row">
-                <div className="connected-watch-row">
-                  <Link className="connected-watch-link" to={`/watches/${String(watch.id)}/edit`}>
+            {watches.map((watch) => {
+              const matches = search.results.matches
+                .filter((match) => match.watchId === watch.id)
+                .sort((left, right) => right.message.postedAt - left.message.postedAt);
+              const hasSearchResults =
+                search.results.summary !== null || search.results.matches.length > 0;
+
+              return (
+                <li key={watch.id}>
+                  <div className="connected-watch-row interactive-row">
                     <span className="connected-watch-icon">
                       <Bell size={20} aria-hidden="true" />
                     </span>
-                    <div className="connected-watch-details">
-                      <strong>{watch.phrases[0]}</strong>
-                      <span>
-                        {watch.phrases.length > 1
-                          ? t("multipleNames", { count: watch.phrases.length })
-                          : t("oneName")}{" "}
-                        ·{" "}
-                        {watch.maxPriceCents === null
-                          ? t("anyPrice")
-                          : t("upToPrice", { price: currency.format(watch.maxPriceCents / 100) })}
-                      </span>
+                    <div className="connected-watch-link">
+                      <div className="connected-watch-details">
+                        <div className="connected-watch-name">
+                          <Link
+                            className="connected-watch-edit"
+                            to={`/watches/${String(watch.id)}/edit`}
+                          >
+                            <strong>{watch.phrases[0]}</strong>
+                          </Link>
+                          {hasSearchResults && matches.length === 0 && (
+                            <InfoTooltip
+                              align="start"
+                              tone="empty"
+                              label={t("noProductMatches")}
+                              trigger={<SearchX size={17} aria-hidden="true" />}
+                            >
+                              {t("noProductMatches")}
+                            </InfoTooltip>
+                          )}
+                        </div>
+                        <span>
+                          {watch.phrases.length > 1
+                            ? t("multipleNames", { count: watch.phrases.length })
+                            : t("oneName")}{" "}
+                          ·{" "}
+                          {watch.maxPriceCents === null
+                            ? t("anyPrice")
+                            : t("upToPrice", { price: currency.format(watch.maxPriceCents / 100) })}
+                        </span>
+                      </div>
+                      <ChevronRight
+                        className="connected-watch-arrow"
+                        size={18}
+                        aria-hidden="true"
+                      />
                     </div>
-                    <ChevronRight className="connected-watch-arrow" size={18} aria-hidden="true" />
-                  </Link>
-                  <button
-                    className="connected-delete"
-                    type="button"
-                    aria-label={t("deleteNamedProduct", { name: watch.phrases[0] ?? t("product") })}
-                    title={t("deleteProduct")}
-                    disabled={isDeleting}
-                    onClick={() => {
-                      setDeleteId(watch.id);
-                    }}
-                  >
-                    <Trash2 size={17} aria-hidden="true" />
-                  </button>
-                </div>
-                {deleteId === watch.id && (
-                  <div className="connected-delete-confirm">
-                    <p>{t("deleteProductConfirm")}</p>
-                    <div>
-                      <Button
-                        variant="quiet"
-                        disabled={isDeleting}
-                        onClick={() => {
-                          setDeleteId(null);
-                        }}
-                      >
-                        {t("keepProduct")}
-                      </Button>
-                      <Button
-                        variant="danger"
-                        disabled={isDeleting}
-                        onClick={() => void deleteWatch(watch.id)}
-                      >
-                        {isDeleting ? t("deleting") : t("deleteProduct")}
-                      </Button>
-                    </div>
+                    <button
+                      className="connected-delete"
+                      type="button"
+                      aria-label={t("deleteNamedProduct", {
+                        name: watch.phrases[0] ?? t("product"),
+                      })}
+                      title={t("deleteProduct")}
+                      disabled={isDeleting}
+                      onClick={() => {
+                        setDeleteError(null);
+                        setDeleteId(watch.id);
+                      }}
+                    >
+                      <Trash2 size={17} aria-hidden="true" />
+                    </button>
                   </div>
-                )}
-              </li>
-            ))}
+                  {matches.length > 0 && (
+                    <ProductMatches name={watch.phrases[0] ?? t("product")} matches={matches} />
+                  )}
+                  {deleteId === watch.id && (
+                    <DeleteWatchDialog
+                      name={watch.phrases[0] ?? t("product")}
+                      isBusy={isDeleting}
+                      error={deleteError}
+                      onClose={() => {
+                        setDeleteId(null);
+                      }}
+                      onDelete={() => deleteWatch(watch.id)}
+                    />
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
       </section>

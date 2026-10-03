@@ -1,11 +1,23 @@
 import { render } from "../../test-setup";
 import { act, cleanup, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { Link, MemoryRouter, Outlet, Route, Routes } from "react-router-dom";
 import { ConnectedPage } from "./ConnectedPage";
+import { SearchContext } from "./search-context";
+import { useProductSearch } from "./useProductSearch";
+import { WatchContext } from "./watch-context";
+import { useWatchCache } from "./useWatchCache";
 import type { Watch } from "../../watch.model";
+import { AddWatchPage } from "../AddWatchPage/AddWatchPage";
 
-const api = vi.hoisted(() => ({ listWatches: vi.fn(), deleteWatch: vi.fn() }));
+const api = vi.hoisted(() => ({
+  listWatches: vi.fn(),
+  deleteWatch: vi.fn(),
+  loadSearchResults: vi.fn(),
+  searchProducts: vi.fn(),
+  clearSearchResults: vi.fn(),
+  createWatch: vi.fn(),
+}));
 vi.mock("../../telegram", () => ({
   telegram: api,
 }));
@@ -14,17 +26,48 @@ const products: Watch[] = [
   { id: 2, phrases: ["RTX 5070"], maxPriceCents: null },
 ];
 beforeEach(() => {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: {
+      configurable: true,
+      value: vi.fn(function (this: HTMLDialogElement) {
+        this.setAttribute("open", "");
+      }),
+    },
+    close: {
+      configurable: true,
+      value: vi.fn(function (this: HTMLDialogElement) {
+        this.removeAttribute("open");
+      }),
+    },
+  });
   vi.resetAllMocks();
   api.listWatches.mockResolvedValue(products);
   api.deleteWatch.mockResolvedValue(undefined);
+  api.loadSearchResults.mockResolvedValue({ matches: [], summary: null });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  Reflect.deleteProperty(HTMLDialogElement.prototype, "showModal");
+  Reflect.deleteProperty(HTMLDialogElement.prototype, "close");
+});
+
+function SearchPage() {
+  const search = useProductSearch();
+  const watches = useWatchCache();
+  return (
+    <SearchContext.Provider value={search}>
+      <WatchContext.Provider value={watches}>
+        <ConnectedPage />
+      </WatchContext.Provider>
+    </SearchContext.Provider>
+  );
+}
 
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={["/connected"]}>
       <Routes>
-        <Route path="/connected" element={<ConnectedPage />} />
+        <Route path="/connected" element={<SearchPage />} />
         <Route path="/watches/new" element={<h1>Add product</h1>} />
         <Route path="/watches/:watchId/edit" element={<h1>Edit product</h1>} />
       </Routes>
@@ -32,16 +75,124 @@ function renderPage() {
   );
 }
 
+function CachedSession() {
+  const search = useProductSearch();
+  const watches = useWatchCache();
+  return (
+    <SearchContext.Provider value={search}>
+      <WatchContext.Provider value={watches}>
+        <Link to="/connected">Products tab</Link>
+        <Link to="/chats">Chats tab</Link>
+        <Outlet />
+      </WatchContext.Provider>
+    </SearchContext.Provider>
+  );
+}
+
+it("shows a product saved after navigating away from a pending initial list", async () => {
+  let finish!: (value: Watch[]) => void;
+  const created = { id: 3, phrases: ["Controller"], maxPriceCents: null };
+  api.listWatches
+    .mockReturnValueOnce(
+      new Promise<Watch[]>((resolve) => {
+        finish = resolve;
+      }),
+    )
+    .mockResolvedValue([created, ...products]);
+  api.createWatch.mockResolvedValue(created);
+  render(
+    <MemoryRouter initialEntries={["/connected"]}>
+      <Routes>
+        <Route element={<CachedSession />}>
+          <Route path="/connected" element={<ConnectedPage />} />
+          <Route path="/watches/new" element={<AddWatchPage />} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+  fireEvent.change(screen.getByLabelText("Product name"), { target: { value: "Controller" } });
+  fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+  await screen.findByRole("heading", { name: "Products" });
+
+  await act(async () => {
+    finish(products);
+    await Promise.resolve();
+  });
+
+  expect(await screen.findByRole("link", { name: "Controller" })).toBeInTheDocument();
+  expect(api.createWatch).toHaveBeenCalledTimes(1);
+});
+
+it("returns from Chats with cached products and results without a loading state", async () => {
+  render(
+    <MemoryRouter initialEntries={["/connected"]}>
+      <Routes>
+        <Route element={<CachedSession />}>
+          <Route path="/connected" element={<ConnectedPage />} />
+          <Route path="/chats" element={<h1>Chats page</h1>} />
+        </Route>
+      </Routes>
+    </MemoryRouter>,
+  );
+  await screen.findByRole("link", { name: "RTX 5070" });
+  await waitFor(() => expect(screen.getByRole("status")).toBeEmptyDOMElement());
+
+  fireEvent.click(screen.getByRole("link", { name: "Chats tab" }));
+  expect(screen.getByRole("heading", { name: "Chats page" })).toBeInTheDocument();
+
+  fireEvent.click(screen.getByRole("link", { name: "Products tab" }));
+  expect(screen.getByRole("link", { name: "RTX 5070" })).toBeInTheDocument();
+  expect(screen.queryByText(/Loading products|Loading saved matches/)).not.toBeInTheDocument();
+  expect(api.listWatches).toHaveBeenCalledTimes(1);
+  expect(api.loadSearchResults).toHaveBeenCalledTimes(1);
+});
+
+it("opens deletion as a modal, cancels with Escape and blocks dismissal while deleting", async () => {
+  let finish!: () => void;
+  api.deleteWatch.mockReturnValue(
+    new Promise<void>((resolve) => {
+      finish = resolve;
+    }),
+  );
+  renderPage();
+  fireEvent.click(await screen.findByRole("button", { name: "Delete RTX 5070" }));
+  const dialog = screen.getByRole("dialog", { name: "Delete RTX 5070" });
+  expect(dialog).toHaveAttribute("open");
+  expect(screen.getByRole("button", { name: "Keep product" })).toHaveFocus();
+
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(api.deleteWatch).not.toHaveBeenCalled();
+
+  fireEvent.click(screen.getByRole("button", { name: "Delete RTX 5070" }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete product" }));
+  fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+  expect(screen.getByRole("dialog")).toHaveAttribute("aria-busy", "true");
+
+  await act(async () => {
+    finish();
+    await Promise.resolve();
+  });
+  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "RTX 5070" })).not.toBeInTheDocument();
+});
+
 describe("Products", () => {
   it("shows saved products, price ceilings, and a link to edit each product", async () => {
     renderPage();
 
-    expect(screen.getByRole("status")).toHaveTextContent("Loading products");
+    expect(screen.getByText(/Loading products/)).toBeInTheDocument();
 
-    const laptop = await screen.findByRole("link", { name: /Laptop Vivobook S14/ });
+    const laptop = await screen.findByRole("link", { name: "Laptop Vivobook S14" });
     expect(laptop).toHaveAttribute("href", "/watches/1/edit");
-    expect(laptop).toHaveTextContent(/2 names · Up to R\$\s*3\.500,00/);
-    expect(screen.getByRole("link", { name: /RTX 5070/ })).toHaveTextContent("1 name · Any price");
+    expect(laptop.closest(".connected-watch-details")).toHaveTextContent(
+      /2 names · Up to R\$\s*3\.500,00/,
+    );
+    expect(
+      screen.getByRole("link", { name: "RTX 5070" }).closest(".connected-watch-details"),
+    ).toHaveTextContent("1 name · Any price");
 
     fireEvent.click(laptop);
 

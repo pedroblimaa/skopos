@@ -1,8 +1,8 @@
-mod adapter;
+pub(in crate::telegram) mod adapter;
 pub mod commands;
 mod mapping;
 mod photos;
-mod repository;
+pub(in crate::telegram) mod repository;
 #[cfg(test)]
 mod tests;
 
@@ -30,7 +30,7 @@ pub enum ChatKind {
 }
 
 #[derive(Debug)]
-enum ChatError {
+pub(in crate::telegram) enum ChatError {
     Auth(AuthError),
     Telegram(grammers_client::InvocationError),
     Storage,
@@ -39,7 +39,7 @@ enum ChatError {
 }
 
 impl ChatError {
-    fn message(&self) -> AppMessage {
+    pub(in crate::telegram) fn message(&self) -> AppMessage {
         match self {
             Self::Auth(error) => error.message(),
             Self::Telegram(grammers_client::InvocationError::Rpc(error)) if error.code == 401 => {

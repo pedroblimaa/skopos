@@ -1,5 +1,5 @@
 .chats-page {
-  width: min(800px, 100%);
+  width: min(calc(var(--page-content-width) + 2 * var(--space-6)), 100%);
   margin: 0 auto;
   padding: var(--space-8) var(--space-6);
 }

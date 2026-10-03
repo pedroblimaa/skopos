@@ -4,6 +4,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { Link, MemoryRouter, Route, Routes } from "react-router-dom";
 import { AddWatchPage } from "./AddWatchPage";
 import type { Watch } from "../../watch.model";
+import type { ReactNode } from "react";
+import { WatchContext } from "../ConnectedPage/watch-context";
+import { useWatchCache } from "../ConnectedPage/useWatchCache";
+import { SearchContext } from "../ConnectedPage/search-context";
+import { useProductSearch } from "../ConnectedPage/useProductSearch";
 
 const api = vi.hoisted(() => ({
   createWatch: vi.fn(),
@@ -21,25 +26,39 @@ beforeEach(() => {
     phrases: ["Laptop Vivobook S14"],
     maxPriceCents: null,
   });
+  api.updateWatch.mockResolvedValue({ id: 7, phrases: ["Laptop OLED"], maxPriceCents: null });
 });
 afterEach(cleanup);
+
+function ProductSession({ children }: { children: ReactNode }) {
+  const watches = useWatchCache();
+  const search = useProductSearch();
+  return (
+    <WatchContext.Provider value={watches}>
+      <SearchContext.Provider value={search}>{children}</SearchContext.Provider>
+    </WatchContext.Provider>
+  );
+}
 
 function renderPage(path = "/watches/new") {
   render(
     <MemoryRouter initialEntries={[path]}>
-      <Routes>
-        <Route path="/watches/new" element={<AddWatchPage />} />
-        <Route path="/watches/:watchId/edit" element={<AddWatchPage />} />
-        <Route
-          path="/connected"
-          element={
-            <>
-              <h1>Products home</h1>
-              <Link to="/watches/new">Add another product</Link>
-            </>
-          }
-        />
-      </Routes>
+      <ProductSession>
+        <Routes>
+          <Route path="/watches/new" element={<AddWatchPage />} />
+          <Route path="/watches/:watchId/edit" element={<AddWatchPage />} />
+          <Route
+            path="/connected"
+            element={
+              <>
+                <h1>Products home</h1>
+                <Link to="/watches/new">Add another product</Link>
+                <Link to="/watches/7/edit">Edit again</Link>
+              </>
+            }
+          />
+        </Routes>
+      </ProductSession>
     </MemoryRouter>,
   );
 }
@@ -53,9 +72,9 @@ describe("AddWatchPage", () => {
   ] as const)(
     "preserves a new draft after a late %s save result (success: %s)",
     async (kind, succeeds) => {
-      let resolve!: () => void;
+      let resolve!: (value: Watch) => void;
       let reject!: (reason: unknown) => void;
-      const pendingSave = new Promise<void>((res, rej) => {
+      const pendingSave = new Promise<Watch>((res, rej) => {
         resolve = res;
         reject = rej;
       });
@@ -82,13 +101,25 @@ describe("AddWatchPage", () => {
       });
 
       await act(async () => {
-        if (succeeds) resolve();
-        else reject(new Error("Late failure"));
+        if (succeeds) {
+          resolve({
+            id: kind === "update" ? 7 : 1,
+            phrases: ["First product"],
+            maxPriceCents: null,
+          });
+        } else {
+          reject(new Error("Late failure"));
+        }
         await pendingSave.catch(() => {});
       });
 
       expect(screen.getByLabelText("Product name")).toHaveValue("Second product");
       expect(screen.getByRole("button", { name: "Add product" })).toBeEnabled();
+      if (succeeds && kind === "update") {
+        fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+        fireEvent.click(screen.getByRole("link", { name: "Edit again" }));
+        expect(await screen.findByLabelText("Product name")).toHaveValue("First product");
+      }
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     },
   );
@@ -153,6 +184,10 @@ describe("AddWatchPage", () => {
     });
 
     expect(api.createWatch).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("link", { name: "Edit again" }));
+    expect(await screen.findByLabelText("Product name")).toHaveValue("Laptop OLED");
+    expect(api.listWatches).toHaveBeenCalledTimes(1);
   });
 
   it("preserves edited values on failure and disables fields while saving", async () => {

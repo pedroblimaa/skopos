@@ -9,6 +9,8 @@ import { parsePriceCents } from "./price";
 import { appError, type AppMessage } from "../../app-message";
 import { useLanguage } from "../../i18n/useLanguage";
 import "./AddWatchPage.css";
+import { useWatches } from "../ConnectedPage/watch-context";
+import { useSearchResults } from "../ConnectedPage/search-context";
 
 interface PhraseField {
   id: number;
@@ -18,6 +20,9 @@ interface PhraseField {
 export function AddWatchPage() {
   const { t, message } = useLanguage();
   const navigate = useNavigate();
+  const watchCache = useWatches();
+  const search = useSearchResults();
+  const { load } = watchCache;
   const { watchId } = useParams();
   const isEditing = watchId !== undefined;
   const [isLoading, setIsLoading] = useState(isEditing);
@@ -49,7 +54,7 @@ export function AddWatchPage() {
 
     async function loadWatch() {
       try {
-        const watches = await telegram.listWatches();
+        const watches = await load();
         if (!isActive) return;
 
         const watch = watches.find((item) => String(item.id) === watchId);
@@ -77,7 +82,7 @@ export function AddWatchPage() {
     return () => {
       isActive = false;
     };
-  }, [watchId]);
+  }, [watchId, load]);
 
   function addPhrase() {
     setPhrases((current) => [...current, { id: nextId, value: "" }]);
@@ -103,8 +108,12 @@ export function AddWatchPage() {
         maxPriceCents: priceCents,
       };
 
-      if (isEditing) await telegram.updateWatch(Number(watchId), input);
-      else await telegram.createWatch(input);
+      const watch = isEditing
+        ? await telegram.updateWatch(Number(watchId), input)
+        : await telegram.createWatch(input);
+
+      watchCache.update(watch);
+      search.invalidate();
 
       if (!isActive.current) return;
 

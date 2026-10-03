@@ -31,7 +31,12 @@ pub async fn get_profile_photo(
 }
 
 #[tauri::command]
-pub async fn sign_out(app: AppHandle, state: State<'_, AuthState>) -> Result<(), AppMessage> {
+pub async fn sign_out(
+    app: AppHandle,
+    state: State<'_, AuthState>,
+    search: State<'_, crate::telegram::search::SearchState>,
+) -> Result<(), AppMessage> {
+    let _operation = search.cancel_and_wait().await;
     let context = state.client(&app).await.map_err(|error| error.message())?;
 
     workflow::sign_out(&state, context, &TauriEvents(&app))

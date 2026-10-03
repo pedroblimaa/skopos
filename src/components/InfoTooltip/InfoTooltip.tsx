@@ -7,9 +7,20 @@ interface Props {
   children: ReactNode;
   trigger?: ReactNode;
   buttonProps?: ButtonHTMLAttributes<HTMLButtonElement>;
+  align?: "start" | "end";
+  variant?: "information" | "action";
+  tone?: "neutral" | "empty";
 }
 
-export function InfoTooltip({ label, children, trigger, buttonProps }: Props) {
+export function InfoTooltip({
+  label,
+  children,
+  trigger,
+  buttonProps,
+  align = "end",
+  variant = "information",
+  tone = "neutral",
+}: Props) {
   const id = useId();
   const [isDismissed, setIsDismissed] = useState(false);
 
@@ -17,6 +28,9 @@ export function InfoTooltip({ label, children, trigger, buttonProps }: Props) {
     <span
       className="info-tooltip"
       data-dismissed={isDismissed}
+      data-align={align}
+      data-variant={variant}
+      data-tone={tone}
       onMouseEnter={() => {
         setIsDismissed(false);
       }}
