@@ -16,37 +16,47 @@
 }
 .info-tooltip-trigger:hover,
 .info-tooltip-trigger:focus-visible {
-  color: var(--color-link);
-  background: var(--color-surface-raised);
+  color: var(--color-secondary);
+}
+.info-tooltip[data-tone="empty"] .info-tooltip-trigger {
+  color: var(--color-empty-result);
 }
 .info-tooltip-content {
   position: absolute;
   top: 100%;
   right: 0;
   z-index: 2;
-  width: min(300px, calc(100vw - 80px));
-  padding: 12px 14px;
+  width: max-content;
+  max-width: min(240px, calc(100vw - 80px));
+  padding: 8px 10px;
   border: 1px solid var(--color-border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-tooltip);
   background: var(--color-surface-raised);
   color: var(--color-secondary);
-  box-shadow: var(--shadow-floating);
-  font-size: 13px;
+  box-shadow: var(--shadow-panel);
+  font-size: 12px;
   font-weight: 400;
   line-height: 1.5;
   visibility: hidden;
   opacity: 0;
-  transform: translateY(-4px);
   transition:
     opacity var(--motion-feedback) var(--ease-standard),
-    transform var(--motion-feedback) var(--ease-standard),
     visibility 0s linear var(--motion-feedback);
+}
+.info-tooltip[data-align="start"] .info-tooltip-content {
+  left: 0;
+  right: auto;
 }
 .info-tooltip:not([data-dismissed="true"]):hover .info-tooltip-content,
 .info-tooltip:not([data-dismissed="true"]):focus-within .info-tooltip-content {
   visibility: visible;
   opacity: 1;
-  transform: translateY(0);
+  transition-delay: 0s;
+}
+.info-tooltip[data-variant="action"]:not([data-dismissed="true"]):hover .info-tooltip-content {
+  transition-delay: var(--tooltip-delay);
+}
+.info-tooltip:not([data-dismissed="true"]):focus-within .info-tooltip-content {
   transition-delay: 0s;
 }
 

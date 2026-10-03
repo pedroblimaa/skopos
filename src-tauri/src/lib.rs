@@ -1,4 +1,6 @@
 mod app_message;
+mod links;
+mod promotion;
 mod telegram;
 mod watch;
 #[cfg(feature = "e2e")]
@@ -24,6 +26,10 @@ macro_rules! app_handler {
             watch::commands::list_watches,
             watch::commands::update_watch,
             watch::commands::delete_watch,
+            telegram::search::commands::search_products,
+            telegram::search::commands::load_search_results,
+            telegram::search::commands::clear_search_results,
+            links::open_promotion_link,
             $($extra),*
         ]
     };
@@ -31,7 +37,7 @@ macro_rules! app_handler {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default();
+    let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
     #[cfg(feature = "e2e")]
     let builder = builder
         .plugin(tauri_plugin_wdio::init())
@@ -39,6 +45,7 @@ pub fn run() {
 
     let builder = builder
         .manage(telegram::AuthState::default())
+        .manage(telegram::search::SearchState::default())
         .manage(telegram::chats::ChatPhotos::default());
     #[cfg(not(feature = "e2e"))]
     let builder = builder.invoke_handler(app_handler!());

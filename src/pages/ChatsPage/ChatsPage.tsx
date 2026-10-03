@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { MessagesSquare, RefreshCw } from "lucide-react";
 import { Button } from "../../components/Button/Button";
+import { InfoTooltip } from "../../components/InfoTooltip/InfoTooltip";
 import { SearchField } from "../../components/SearchField/SearchField";
 import { SessionLoading } from "../../components/SessionLoading/SessionLoading";
 import { useLanguage } from "../../i18n/useLanguage";
@@ -40,15 +41,17 @@ export function ChatsPage() {
         )}
         {state.isLoading && !state.isLoaded && <SessionLoading label={t("loadingChats")} />}
         {!state.isLoaded && !state.isLoading && state.error !== null && (
-          <Button
-            iconOnly
-            variant="quiet"
-            aria-label={t("refreshChats")}
-            title={t("refreshChats")}
-            onClick={() => void state.refresh()}
+          <InfoTooltip
+            variant="action"
+            label={t("refreshChats")}
+            trigger={<RefreshCw size={18} aria-hidden="true" />}
+            buttonProps={{
+              className: "button button--quiet button--icon",
+              onClick: () => void state.refresh(),
+            }}
           >
-            <RefreshCw size={18} aria-hidden="true" />
-          </Button>
+            {t("refreshChats")}
+          </InfoTooltip>
         )}
         {state.isLoaded && (
           <>
@@ -61,20 +64,24 @@ export function ChatsPage() {
                   setQuery(event.target.value);
                 }}
               />
-              <Button
-                iconOnly
-                variant="quiet"
-                disabled={isBusy}
-                aria-label={t("refreshChats")}
-                title={t("refreshChats")}
-                onClick={() => void state.refresh()}
+              <InfoTooltip
+                variant="action"
+                label={t("refreshChats")}
+                trigger={
+                  <RefreshCw
+                    className={state.isLoading ? "chats-refreshing" : undefined}
+                    size={18}
+                    aria-hidden="true"
+                  />
+                }
+                buttonProps={{
+                  className: "button button--quiet button--icon",
+                  disabled: isBusy,
+                  onClick: () => void state.refresh(),
+                }}
               >
-                <RefreshCw
-                  className={state.isLoading ? "chats-refreshing" : undefined}
-                  size={18}
-                  aria-hidden="true"
-                />
-              </Button>
+                {t("refreshChats")}
+              </InfoTooltip>
             </div>
             {state.chats.length === 0 && (
               <div className="chats-empty">

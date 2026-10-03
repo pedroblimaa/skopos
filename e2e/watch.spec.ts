@@ -24,7 +24,7 @@ describe("product desktop flows", () => {
   });
 
   it("creates and reloads a locally saved product", async () => {
-    await $("button=Add product").click();
+    await $("button[aria-label='Add product']").click();
     await $("#phrase-0").setValue("Laptop Vivobook S14");
     await $("button=Add alternative name").click();
     await $("#phrase-1").setValue("Asus Vivobook 14");
@@ -42,7 +42,7 @@ describe("product desktop flows", () => {
   it("opens a product for editing and persists changes to the same product", async () => {
     const saved = await seedProduct();
 
-    await $("strong=Laptop Vivobook S14").click();
+    await $(".connected-watch-icon").click({ x: 0, y: 0 });
     await $("h1=Edit product").waitForDisplayed();
     await browser.waitUntil(
       async () => (await $("#phrase-0").getValue()) === "Laptop Vivobook S14",
@@ -66,8 +66,81 @@ describe("product desktop flows", () => {
     ]);
   });
 
+  it("keeps a newly saved product when an older initial list finishes after saving", async () => {
+    await browser.refresh();
+    await browser.execute(() => {
+      const testWindow = window as unknown as Window & {
+        __TAURI__: {
+          core: { invoke: (name: string, ...args: unknown[]) => Promise<unknown> };
+          event: unknown;
+        };
+        finishProductList?: () => void;
+        isProductListReady?: boolean;
+      };
+      const originalApi = testWindow.__TAURI__;
+      const originalDescriptor = Object.getOwnPropertyDescriptor(testWindow, "__TAURI__");
+      if (!originalDescriptor) throw new Error("Tauri test API is missing");
+      let release!: () => void;
+      const gate = new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      let isHeld = false;
+
+      testWindow.finishProductList = () => {
+        Object.defineProperty(testWindow, "__TAURI__", originalDescriptor);
+        delete testWindow.finishProductList;
+        delete testWindow.isProductListReady;
+        release();
+      };
+      Object.defineProperty(testWindow, "__TAURI__", {
+        configurable: true,
+        value: {
+          core: {
+            invoke: async (name: string, ...args: unknown[]) => {
+              const shouldHold = name === "list_watches" && !isHeld;
+              if (shouldHold) isHeld = true;
+              const result = await originalApi.core.invoke(name, ...args);
+              if (shouldHold) {
+                testWindow.isProductListReady = true;
+                await gate;
+              }
+
+              return result;
+            },
+          },
+          event: originalApi.event,
+        },
+      });
+    });
+
+    try {
+      await enableApp();
+      await $("p=Loading products…").waitForDisplayed();
+      await browser.waitUntil(() =>
+        browser.execute(
+          () => (window as Window & { isProductListReady?: boolean }).isProductListReady === true,
+        ),
+      );
+
+      await $("button[aria-label='Add product']").click();
+      await $("#phrase-0").setValue("Controller");
+      await $("button=Add product").click();
+      await $("h1=Products").waitForDisplayed();
+
+      await finishProductList();
+
+      await $("strong=Controller").waitForDisplayed();
+      assert.deepEqual(
+        (await command<Watch[]>("list_watches")).map((watch) => watch.phrases),
+        [["Controller"]],
+      );
+    } finally {
+      await finishProductList();
+    }
+  });
+
   it("preserves a new draft when a save finishes after leaving the previous form", async () => {
-    await $("button=Add product").click();
+    await $("button[aria-label='Add product']").click();
     await $("#phrase-0").setValue("First product");
     await browser.execute(() => {
       const testWindow = window as unknown as Window & {
@@ -123,7 +196,7 @@ describe("product desktop flows", () => {
       await $("button=Cancel").click();
       await $("h1=Products").waitForDisplayed();
 
-      await $("button=Add product").click();
+      await $("button[aria-label='Add product']").click();
       await $("#phrase-0").setValue("Second product");
       await finishProductSave();
 
@@ -145,6 +218,17 @@ describe("product desktop flows", () => {
     });
     await reloadProducts();
     await $("strong=RTX 5070").waitForDisplayed();
+
+    await $("button[aria-label='Delete Laptop Vivobook S14']").click();
+    await $("dialog[open]").waitForDisplayed();
+    assert.equal(await $("dialog h2").getText(), "Delete Laptop Vivobook S14");
+    await browser.execute(() => {
+      document
+        .querySelector<HTMLDialogElement & { requestClose: () => void }>("dialog[open]")
+        ?.requestClose();
+    });
+    await browser.waitUntil(async () => !(await $("dialog[open]").isExisting()));
+    assert.equal((await command<Watch[]>("list_watches")).length, 2);
 
     await $("button[aria-label='Delete Laptop Vivobook S14']").click();
     await $("button=Keep product").click();
@@ -210,7 +294,7 @@ describe("product desktop flows", () => {
     await command("focus_window");
     await browser.waitUntil(() => browser.execute(() => document.hasFocus()));
 
-    await $("button=Add product").click();
+    await $("button[aria-label='Add product']").click();
     const trigger = $("button[aria-label='How search names match']");
     await trigger.waitForDisplayed();
     const tooltipId = await trigger.getAttribute("aria-describedby");
@@ -227,6 +311,9 @@ describe("product desktop flows", () => {
 
     await $("#phrase-0").click();
     assert.equal(await $("#phrase-0").isFocused(), true);
+
+    await command("focus_window");
+    await browser.waitUntil(() => browser.execute(() => document.hasFocus()));
 
     await browser.execute(() => {
       document
@@ -364,6 +451,12 @@ async function finishProductSave() {
       finishProductSave?: () => void | Promise<void>;
     };
     await testWindow.finishProductSave?.();
+  });
+}
+
+async function finishProductList() {
+  await browser.execute(() => {
+    (window as Window & { finishProductList?: () => void }).finishProductList?.();
   });
 }
 

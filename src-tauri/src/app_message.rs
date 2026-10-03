@@ -1,6 +1,6 @@
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, PartialEq, Eq, Serialize)]
+#[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(tag = "code", content = "params", rename_all = "camelCase")]
 pub enum AppMessage {
     AuthStorage,
@@ -24,6 +24,7 @@ pub enum AppMessage {
     SignOutInProgress,
     RequestCodeFirst,
     RestartLogin,
+    OpenLinkFailed,
     MissingCredentials,
     InvalidApiId,
     MissingDataCenter,
@@ -40,6 +41,12 @@ pub enum AppMessage {
     ChatLoadFailed,
     ChatRateLimit,
     ChatRateLimitSeconds { seconds: u64 },
+    SearchStorage,
+    SearchFailed,
+    SearchBusy,
+    SearchNeedsProducts,
+    SearchNeedsChats,
+    InvalidSearchCutoff,
     DeliveryApp,
     DeliverySms,
     DeliveryCall,

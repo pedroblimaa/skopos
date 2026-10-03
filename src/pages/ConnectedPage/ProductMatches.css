@@ -1,0 +1,174 @@
+.product-matches {
+  margin: calc(-1 * var(--space-3)) var(--space-3) 0;
+  padding-top: var(--space-3);
+  border: 1px solid var(--color-separator);
+  border-radius: 0 0 var(--radius-panel) var(--radius-panel);
+  background: var(--color-surface-recessed);
+}
+.product-matches > summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  justify-content: space-between;
+  margin: 0;
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 0 0 calc(var(--radius-panel) - 1px) calc(var(--radius-panel) - 1px);
+  transition:
+    color var(--motion-feedback) var(--ease-standard),
+    background-color var(--motion-feedback) var(--ease-standard);
+}
+.product-matches[open] > summary {
+  border-radius: 0;
+}
+.product-matches > summary:hover,
+.product-matches > summary:focus-visible {
+  color: var(--color-text);
+  background: var(--color-surface-recessed-hover);
+}
+.product-matches > summary::-webkit-details-marker,
+.product-match-details > summary::-webkit-details-marker {
+  display: none;
+}
+.product-matches > summary svg,
+.product-match-price > svg {
+  flex-shrink: 0;
+  transition: transform var(--motion-feedback) var(--ease-standard);
+}
+.product-matches[open] > summary svg,
+.product-match-details[open] > summary .product-match-price > svg {
+  transform: rotate(180deg);
+}
+.product-matches-empty {
+  margin: 0;
+  padding: 4px 20px 20px;
+  color: var(--color-secondary);
+  font-size: 13px;
+}
+.product-match-list {
+  list-style: none;
+  margin: 0;
+  padding: 0 20px;
+}
+.product-match-row {
+  padding: 16px 0;
+  border-top: 1px solid var(--color-separator);
+}
+.product-match-heading {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  align-items: start;
+  gap: var(--space-2);
+}
+.product-match-details > summary {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-1);
+  margin: calc(-1 * var(--space-1));
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  list-style: none;
+}
+.product-match-price {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.product-match-price strong {
+  font-size: 15px;
+}
+.product-match-price > svg {
+  color: var(--color-muted);
+}
+.product-match-details > summary:hover .product-match-price > svg {
+  color: var(--color-text);
+}
+.product-match-source {
+  color: var(--color-secondary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.product-match-content {
+  padding-top: var(--space-3);
+}
+.product-match-preview {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  margin-top: var(--space-1);
+  font-size: 13px;
+  line-height: 1.6;
+}
+.product-match-details[open] .product-match-preview {
+  display: none;
+}
+.product-match-text {
+  margin: 0;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 13px;
+  line-height: 1.6;
+}
+.product-match-text a {
+  color: var(--color-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.product-match-image {
+  display: block;
+  max-width: min(100%, 480px);
+  max-height: 400px;
+  object-fit: contain;
+  border-radius: var(--radius-control);
+  margin-bottom: var(--space-3);
+}
+.product-matches[open] > .product-matches-content,
+.product-match-details[open] > .product-match-content {
+  animation: promotion-reveal var(--motion-feedback) var(--ease-standard);
+}
+@keyframes promotion-reveal {
+  from {
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--space-1)));
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@supports (interpolate-size: allow-keywords) {
+  .product-matches,
+  .product-match-details {
+    interpolate-size: allow-keywords;
+  }
+  .product-matches::details-content,
+  .product-match-details::details-content {
+    block-size: 0;
+    overflow: clip;
+    transition:
+      block-size var(--motion-feedback) var(--ease-standard),
+      content-visibility var(--motion-feedback) allow-discrete;
+  }
+  .product-matches[open]::details-content,
+  .product-match-details[open]::details-content {
+    block-size: auto;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .product-matches > summary,
+  .product-matches > summary svg,
+  .product-match-price > svg,
+  .product-matches::details-content,
+  .product-match-details::details-content {
+    transition: none;
+  }
+  .product-matches[open] > .product-matches-content,
+  .product-match-details[open] > .product-match-content {
+    animation: none;
+  }
+}
