@@ -55,7 +55,7 @@ jobs:
             src-tauri -> target/ci
             src-tauri -> target/llvm-cov-target
           cache-on-failure: true
-      - uses: taiki-e/install-action@4cef1412cce204788f482e778a0b9187f9626a29 # v2
+      - uses: taiki-e/install-action@83ac0ad63c0167e6f06796fab0fce28db1bf3db0 # v2
         with:
           tool: cargo-llvm-cov@0.9.1
       # Native coverage includes the complete unit and desktop E2E suites.
