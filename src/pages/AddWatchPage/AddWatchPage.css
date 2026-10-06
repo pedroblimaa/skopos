@@ -64,7 +64,6 @@
 }
 .watch-phrases {
   display: grid;
-  gap: 20px;
 }
 .watch-phrase {
   display: grid;
@@ -200,6 +199,94 @@
   .watch-add,
   .watch-remove,
   .watch-breadcrumb a {
+    transition: none;
+  }
+}
+
+.watch-price-range summary {
+  cursor: pointer;
+  color: var(--color-secondary);
+  font-size: 13px;
+}
+.watch-price-range summary:focus-visible {
+  outline: 2px solid var(--color-link);
+  outline-offset: 4px;
+  border-radius: var(--radius-control);
+}
+.watch-minimum {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: var(--space-4);
+}
+.watch-minimum label {
+  color: var(--color-text);
+  font-size: 13px;
+  font-weight: 500;
+}
+
+.watch-phrase-row {
+  interpolate-size: allow-keywords;
+}
+.watch-phrase-row + .watch-phrase-row {
+  padding-block-start: 20px;
+}
+.watch-phrase-row[data-added="true"],
+.watch-phrase-row[data-removing="true"] {
+  overflow: clip;
+  animation: watch-phrase-add var(--motion-feedback) var(--ease-standard);
+}
+.watch-phrase-row[data-removing="true"] {
+  animation-name: watch-phrase-remove;
+  animation-fill-mode: forwards;
+}
+@keyframes watch-phrase-add {
+  from {
+    block-size: 0;
+    padding-block-start: 0;
+    opacity: 0;
+    transform: translateY(calc(-1 * var(--space-1)));
+  }
+  to {
+    block-size: auto;
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes watch-phrase-remove {
+  from {
+    block-size: auto;
+    opacity: 1;
+  }
+  to {
+    block-size: 0;
+    padding-block-start: 0;
+    opacity: 0;
+  }
+}
+@supports (interpolate-size: allow-keywords) {
+  .watch-price-range {
+    interpolate-size: allow-keywords;
+  }
+  .watch-price-range::details-content {
+    block-size: 0;
+    overflow: clip;
+    opacity: 0;
+    transition:
+      block-size var(--motion-feedback) var(--ease-standard),
+      opacity var(--motion-feedback) var(--ease-standard),
+      content-visibility var(--motion-feedback) allow-discrete;
+  }
+  .watch-price-range[open]::details-content {
+    block-size: auto;
+    opacity: 1;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .watch-phrase-row[data-added="true"],
+  .watch-phrase-row[data-removing="true"] {
+    animation-duration: 0s;
+  }
+  .watch-price-range::details-content {
     transition: none;
   }
 }

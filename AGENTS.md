@@ -1,85 +1,55 @@
-# Skopos engineering context
+# Skopos engineering guide
 
-## Product and constraints
+## Product and scope
 
-Skopos is a local desktop app that monitors selected Telegram promotion groups and channels and alerts the user when a product matches their criteria.
+Skopos is a local desktop app for finding Telegram promotions that match a product name and optional maximum BRL price. Use Tauri, React, TypeScript, Vite, Rust, SQLite, and the `grammers` MTProto client. Communicate through Tauri commands and events; keep credentials, sessions, and data local.
 
-```text
-Connect Telegram → choose promotion chats → define product and maximum price → find matches → notify
-```
+Implemented: QR/phone/password login, session restoration and sign-out, chat selection, product CRUD, manual search of the last 24 hours, saved results, promotion previews, optional photos, external web links, Telegram Saved Messages delivery, and desktop notification summaries. Automatic monitoring, tray/background operation, and startup integration remain planned; plans do not authorize implementation.
 
-- Use Tauri, React + TypeScript + Vite, Rust, SQLite, and an MTProto Telegram user client (preferably `grammers`).
-- Run entirely locally. Do not add a hosted backend or HTTP API without a concrete technical reason. Frontend/backend communication uses Tauri commands and events; Telegram sessions and authentication data remain local.
-- Do not add product-specific behavior until a task explicitly requests it. Introduce modules and abstractions only when their behavior is needed.
+Keep work within the requested flow. Do not add hosted services or HTTP APIs without a concrete technical reason. Skopos accounts, email infrastructure, LLM matching, complex rules, scraping, and synchronization are outside the MVP. Add modules and abstractions only for needed behavior; avoid speculative fallbacks and unreleased-format compatibility.
 
-The user creates watches such as `RTX 5070` with a maximum price of `R$ 4,000`. Skopos inspects selected Telegram messages, extracts product and price information, compares them with enabled watches, and notifies the user when a promotion matches.
-
-## Planned capabilities
-
-Planned capabilities are context, not authorization to implement them.
-
-- Telegram QR login, phone verification code, two-step verification password, persistent session, and logout/disconnect.
-- Watch creation, editing, enable/disable, removal, product/search text, and maximum price.
-- Retrieval and searchable filtering of chats accessible to the authenticated account, with selected sources persisted locally.
-- Manual recent-message search and real-time monitoring using the same generic parser and matcher pipeline.
-- Native desktop notifications with an original-message or promotion link when available.
-- Duplicate-alert prevention for the same Telegram message.
-- Background monitoring while the window is closed, system tray support, optional Windows startup, reconnection, and restart restoration.
-- Local storage for watches, selected chats, seen message IDs, promotion history, settings, and Telegram session state.
-
-## Architecture direction
-
-Keep business logic independent of Telegram-specific types. The intended boundary is:
+## Architecture and data
 
 ```text
-Telegram adapter → generic message/promotion data → parser → matcher → watch match → notification
+Telegram adapter → generic source message → parser/matcher → product match
 ```
 
-Suggested Rust areas are `telegram/` (auth, chats, history, listener), `watch/` (model, repository), `promotion/` (parser, matcher), `notification/`, and `storage/`. Introduce these areas only when their behavior is needed.
+- Keep matching independent of Telegram types in `promotion/`; prices use integer cents. Minimums default to 20% of the maximum (rounded down), or zero without a maximum; a stored custom value overrides this, and zero disables the lower limit. Match both bounds inclusively and require a known price when either bound constrains it. Preserve token matching, alternative names, price ceilings, and rejection of ambiguous, installment, shipping, and old prices.
+- Products are app-wide. Selected chats and saved messages are scoped by Telegram account. Results accumulate across searches, deduplicate by chat/message ID, and are rematched against current products. Clearing results does not delete Telegram messages or prevent rediscovery.
+- `AppShell` owns chat, product, and search caches across page navigation. Update product caches after successful writes and invalidate matches when criteria change. Prevent stale async completions from overwriting current data; dispose authenticated caches on sign-out.
+- Saved-result reads use local storage and cached/persisted account identity; a missing identity may require one Telegram lookup. Missing optional media must not fail results or imply a broken login. Keep photo downloads bounded and preserve cached photos when a later download fails.
+- Render Telegram text as text. Open promotion links through the native HTTP/HTTPS validation boundary in `links.rs`; do not enable arbitrary protocols or render message HTML.
+- Serialize search and cleanup; preserve cancellation and generation checks so sign-out or superseded operations cannot publish stale results.
+- Notification settings and delivery history are account-scoped; both switches default on. Use the existing Telegram session and only send to the current account’s self peer. Save results before enqueueing delivery; keep notification history independent of result cleanup. Preserve uncertain sends across restarts and require explicit retry confirmation. Gate fake Telegram and desktop adapters out of production.
 
-The matcher must operate on generic promotion/message data so future sources such as websites, Discord, or RSS can reuse it.
+## Code organization
 
-## MVP boundaries
+- Pages and hooks: `src/pages/<PageName>`. Shared UI: `src/components/<ComponentName>`. Colocate styles; global tokens belong in `src/global.css`, colors in `src/color-scheme.css`.
+- Typed Tauri bridge: `src/telegram.ts`. Shared payloads: nearby domain model files. Keep local types beside their use until reuse warrants moving them. Translate structured `AppMessage` codes in the frontend; keep both supported languages aligned.
+- Rust startup: `src-tauri/src/lib.rs`. Feature entry files declare modules and exports. Commands own the Tauri boundary, adapters own Telegram calls, workflows coordinate operations, state owns login transitions, and repositories own persistence.
+- Colocate unit tests and Rust `tests.rs`; group desktop scenarios by feature in `e2e/`. Gate fixtures, mocking plugins, and test permissions out of production builds.
+- Follow existing naming: PascalCase components/folders, `useCamelCase` hooks, kebab-case TypeScript modules, standard Rust names. Split by responsibility, not line count; avoid forwarding layers without a concrete benefit.
 
-Keep the first release intentionally small. Do not introduce Skopos accounts, hosted services, email infrastructure, LLM-based matching, complex rule engines, browser/headless scraping, multi-device synchronization, or unnecessary abstractions.
+## Required references
 
-Initial matching may be simple text/product detection plus price extraction and comparison. Exclusions, aliases, fuzzy matching, and LLM assistance are future enhancements.
+Read the applicable guide before implementation or review; its rules apply within that scope.
 
-## Project structure and organization
+| Scope                                                 | Guide                                           |
+| ----------------------------------------------------- | ----------------------------------------------- |
+| Rust host                                             | [Rust guidelines](docs/rust-code-guidelines.md) |
+| UI, styles, controls, tooltips, motion, accessibility | [UI guidelines](docs/ui-design-guidelines.md)   |
+| Implementation, bugs, tests, fixtures, verification   | [Quality checks](docs/quality-checks.md)        |
 
-- Keep React pages and their hooks under `src/pages/<PageName>`, reusable UI under `src/components/<ComponentName>`, and component styles beside their components. Keep global styles in `src/global.css`.
-- Keep the typed Tauri bridge in `src/telegram.ts`. Shared Telegram payloads belong in a nearby domain model file; local types stay beside their use until reuse or readability warrants moving them.
-- Keep Rust startup in `src-tauri/src/lib.rs`, feature declarations in `telegram.rs`, and implementation grouped by responsibility inside `telegram/`. Commands own the Tauri boundary, adapters own Telegram calls, workflows own orchestration, and state owns login transitions.
-- Colocate frontend unit tests and Rust `tests.rs` files with the code they exercise. Group native desktop E2E tests by feature under `e2e/`; keep fixtures behind test or E2E feature gates.
-- Split files for distinct responsibilities, not arbitrary length limits. Avoid a new layer, trait, or helper that only forwards calls without resolving concrete coupling, testing, or readability needs.
+## Safeguards and verification
 
-## Task-specific references
+- Keep frontend and native logic separately testable. Isolate tests from real accounts, credentials, sessions, and databases. Keep secrets, local environment files, databases, sessions, and build output out of Git.
+- Before code handoff, run focused tests, the desktop scenario for each changed flow, and `pnpm check:local`. Follow the linked local budget and stage-reuse rules. Documentation changes need formatting, link, and diff checks.
+- CI owns full frontend/native coverage, desktop E2E, and production-build verification. Report unrun gates as pending. Both production TypeScript and Rust require **96% measured line coverage**; never lower thresholds or exclude production code to pass.
+- Authentication, session storage, dependencies, capabilities, quality rules, and thresholds need explicit human review. Fix lint findings; any necessary local suppression must explain its concrete constraint.
 
-Read the applicable reference before implementing or reviewing the corresponding area. Load only references relevant to the task; their rules are required within that scope.
+## Maintainability
 
-| When the task involves                                                   | Read                                                 |
-| ------------------------------------------------------------------------ | ---------------------------------------------------- |
-| Writing or reviewing `src-tauri` code                                    | [Rust code guidelines](docs/rust-code-guidelines.md) |
-| UI, styling, shared controls, tokens, tooltips, motion, or accessibility | [UI design guidelines](docs/ui-design-guidelines.md) |
-| Code implementation, bug fixes, tests, fixtures, or verification         | [Quality checks and testing](docs/quality-checks.md) |
-
-## Repository safeguards
-
-- Keep the frontend and Rust host separately testable. Prefer typed interfaces and small pure functions for parsing and matching.
-- Keep secrets, Telegram sessions, databases, build output, and local environment files out of Git. Isolate automated tests from real Telegram accounts, credentials, and production session files.
-- Use focused local tests and `pnpm check:local` before local handoff; report full verification as pending CI. CI runs the full frontend, Rust coverage, desktop E2E, and production build gates. Keep both production TypeScript and Rust at or above 96% measured line coverage; never lower thresholds or exclude production code to make a change pass. See `docs/quality-checks.md` for the local budget and stage commands.
-- Add or update a desktop E2E scenario for every implemented feature flow. Keep E2E mocking plugins and permissions out of production builds.
-- Changes to authentication, session storage, dependencies, capabilities, quality rules, or thresholds need explicit human review. Fix lint findings rather than weakening rules or adding blanket suppressions; any necessary local suppression must explain its concrete constraint.
-
-## Code style and maintainability
-
-- Follow existing conventions first. Use PascalCase for React components and their folders, `useCamelCase` for hooks, kebab-case for other TypeScript modules, and standard Rust naming.
-- Organize functions in reading order: entry points first, direct helpers in call order, and low-level utilities last. Keep closely related types near their implementation.
-- Prefer clear domain names, focused functions, explicit boundary types, flat control flow, isolated side effects, and predictable errors. Keep structured Rust errors until the command or event boundary translates them for the UI.
-- Name booleans for the positive state they represent, such as `isBusy` or `hasSession`. Prefer boolean `&&` rendering to a ternary returning `null`; use an explicitly boolean condition where necessary.
-- Do not write cramped code. Separate distinct logical steps with one blank line: setup, validation, side effects, result handling, and return. Keep statements for the same step together; do not add a blank line after every statement. This applies to implementation, helpers, fixtures, and tests in every language.
-- Use `void` on promises only for intentional fire-and-forget work or lint requirements. Every background operation needs an owner, cleanup, and an explicit failure policy.
-- Keep work limited to the requested flow. Avoid speculative fallbacks, compatibility for unreleased formats, generic scaffolding, needless indirection, and forced symmetry.
-- Remove temporary diagnostics. Comments should explain a constraint or non-obvious decision, not narrate the code or preserve conversation history.
-- Review the entire changed implementation before handoff for clarity, duplication, ownership, error paths, and obvious bugs. Improve concrete problems without rewriting sound code for personal preference.
-- Before handoff, inspect every changed function and test for visual grouping. Split uninterrupted runs of statements that perform different steps, including repeated action/assertion sequences. Formatter and lint success do not replace this readability review.
+- Prefer focused functions, explicit boundary types, guard clauses, isolated side effects, predictable errors, and positive booleans such as `isBusy`. Keep structured Rust errors until the command/event boundary. Prefer boolean `&&` rendering over ternaries returning `null`.
+- Order functions by reading flow: entry points, direct helpers, low-level utilities. Keep related types nearby. Use `void` only for intentional background work or lint requirements; each background operation needs ownership, cleanup, and a failure policy.
+- Separate logical steps with one blank line, including setup/action/assertions and repeated test steps. Keep related statements together; formatting does not replace this review.
+- Before handoff, review every changed function and test for clarity, grouping, duplication, ownership, failure paths, and bugs. Remove temporary diagnostics; comments explain constraints, not obvious code. Improve concrete problems without rewriting sound code for preference.

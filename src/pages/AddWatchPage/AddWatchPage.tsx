@@ -5,7 +5,8 @@ import { Button } from "../../components/Button/Button";
 import { InfoTooltip } from "../../components/InfoTooltip/InfoTooltip";
 import { Card } from "../../components/Card/Card";
 import { telegram } from "../../telegram";
-import { parsePriceCents } from "./price";
+import { PriceRange } from "./PriceRange";
+import { isMinimumPriceInvalid, parsePriceCents } from "./price";
 import { appError, type AppMessage } from "../../app-message";
 import { useLanguage } from "../../i18n/useLanguage";
 import "./AddWatchPage.css";
@@ -15,6 +16,8 @@ import { useSearchResults } from "../ConnectedPage/search-context";
 interface PhraseField {
   id: number;
   value: string;
+  isAdded?: boolean;
+  isRemoving?: boolean;
 }
 
 export function AddWatchPage() {
@@ -30,12 +33,17 @@ export function AddWatchPage() {
   const [phrases, setPhrases] = useState<PhraseField[]>([{ id: 0, value: "" }]);
   const [nextId, setNextId] = useState(1);
   const [price, setPrice] = useState("");
+  const [minimum, setMinimum] = useState<string | null>(null);
   const [submitted, setSubmitted] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [saveError, setSaveError] = useState<AppMessage | null>(null);
   const isActive = useRef(false);
   const priceCents = parsePriceCents(price);
-  const hasPhraseError = submitted && phrases.some(({ value }) => !value.trim());
+  const minimumCents = parsePriceCents(minimum ?? "", true);
+  const isMinimumInvalid = isMinimumPriceInvalid(minimumCents, priceCents);
+  const hasMinimumError = submitted && isMinimumInvalid;
+  const activePhrases = phrases.filter((phrase) => !phrase.isRemoving);
+  const hasPhraseError = submitted && activePhrases.some(({ value }) => !value.trim());
   const hasPriceError = submitted && Number.isNaN(priceCents);
   const saveLabel = isEditing ? t("saveChanges") : t("addProduct");
 
@@ -65,6 +73,11 @@ export function AddWatchPage() {
 
         setPhrases(watch.phrases.map((value, id) => ({ id, value })));
         setNextId(watch.phrases.length);
+        setMinimum(
+          watch.minPriceCents === null
+            ? null
+            : (watch.minPriceCents / 100).toFixed(2).replace(".", ","),
+        );
         setPrice(
           watch.maxPriceCents === null
             ? ""
@@ -85,12 +98,14 @@ export function AddWatchPage() {
   }, [watchId, load]);
 
   function addPhrase() {
-    setPhrases((current) => [...current, { id: nextId, value: "" }]);
+    setPhrases((current) => [...current, { id: nextId, value: "", isAdded: true }]);
     setNextId((current) => current + 1);
   }
 
   function updatePhrase(id: number, value: string) {
-    setPhrases((current) => current.map((phrase) => (phrase.id === id ? { id, value } : phrase)));
+    setPhrases((current) =>
+      current.map((phrase) => (phrase.id === id ? { ...phrase, value } : phrase)),
+    );
   }
 
   async function save(event: SubmitEvent<HTMLFormElement>) {
@@ -98,14 +113,21 @@ export function AddWatchPage() {
     setSubmitted(true);
     setSaveError(null);
 
-    if (phrases.some(({ value }) => !value.trim()) || Number.isNaN(priceCents)) return;
+    if (
+      activePhrases.some(({ value }) => !value.trim()) ||
+      Number.isNaN(priceCents) ||
+      isMinimumInvalid
+    ) {
+      return;
+    }
 
     setIsBusy(true);
 
     try {
       const input = {
-        phrases: phrases.map(({ value }) => value.trim()),
+        phrases: activePhrases.map(({ value }) => value.trim()),
         maxPriceCents: priceCents,
+        minPriceCents: minimumCents,
       };
 
       const watch = isEditing
@@ -162,45 +184,73 @@ export function AddWatchPage() {
 
                 <div className="watch-phrases">
                   {phrases.map((phrase, index) => (
-                    <div className="watch-phrase" key={phrase.id}>
-                      <div className="watch-phrase-heading">
-                        <label htmlFor={`phrase-${String(phrase.id)}`}>
-                          {index === 0 ? t("productName") : t("alternativeName", { index })}
-                        </label>
-                        {index > 0 && (
-                          <button
-                            className="watch-remove"
-                            type="button"
-                            aria-label={t("removeAlternativeName", { index })}
-                            onClick={() => {
-                              setPhrases((current) => current.filter(({ id }) => id !== phrase.id));
-                            }}
-                          >
-                            <Trash2 size={15} aria-hidden="true" /> {t("remove")}
-                          </button>
+                    <div
+                      className="watch-phrase-row"
+                      key={phrase.id}
+                      data-added={phrase.isAdded}
+                      data-removing={phrase.isRemoving}
+                      inert={phrase.isRemoving}
+                      aria-hidden={phrase.isRemoving}
+                      onAnimationEnd={(event) => {
+                        if (event.target !== event.currentTarget) return;
+
+                        setPhrases((current) =>
+                          current
+                            .filter((item) => item.id !== phrase.id || !item.isRemoving)
+                            .map((item) =>
+                              item.id === phrase.id ? { ...item, isAdded: false } : item,
+                            ),
+                        );
+                      }}
+                    >
+                      <div className="watch-phrase">
+                        <div className="watch-phrase-heading">
+                          <label htmlFor={`phrase-${String(phrase.id)}`}>
+                            {index === 0 ? t("productName") : t("alternativeName", { index })}
+                          </label>
+                          {index > 0 && (
+                            <button
+                              className="watch-remove"
+                              type="button"
+                              aria-label={t("removeAlternativeName", { index })}
+                              onClick={(event) => {
+                                event.currentTarget
+                                  .closest("fieldset")
+                                  ?.querySelector<HTMLButtonElement>(".watch-add")
+                                  ?.focus();
+                                setPhrases((current) =>
+                                  current.map((item) =>
+                                    item.id === phrase.id ? { ...item, isRemoving: true } : item,
+                                  ),
+                                );
+                              }}
+                            >
+                              <Trash2 size={15} aria-hidden="true" /> {t("remove")}
+                            </button>
+                          )}
+                        </div>
+                        <input
+                          id={`phrase-${String(phrase.id)}`}
+                          value={phrase.value}
+                          onChange={(event) => {
+                            updatePhrase(phrase.id, event.target.value);
+                          }}
+                          placeholder={
+                            index === 0 ? t("productNameExample") : t("anotherProductName")
+                          }
+                          aria-invalid={submitted && !phrase.value.trim()}
+                          aria-describedby={
+                            submitted && !phrase.value.trim()
+                              ? `phrase-error-${String(phrase.id)}`
+                              : undefined
+                          }
+                        />
+                        {submitted && !phrase.value.trim() && (
+                          <p className="watch-field-error" id={`phrase-error-${String(phrase.id)}`}>
+                            {t("enterProductName")}
+                          </p>
                         )}
                       </div>
-                      <input
-                        id={`phrase-${String(phrase.id)}`}
-                        value={phrase.value}
-                        onChange={(event) => {
-                          updatePhrase(phrase.id, event.target.value);
-                        }}
-                        placeholder={
-                          index === 0 ? t("productNameExample") : t("anotherProductName")
-                        }
-                        aria-invalid={submitted && !phrase.value.trim()}
-                        aria-describedby={
-                          submitted && !phrase.value.trim()
-                            ? `phrase-error-${String(phrase.id)}`
-                            : undefined
-                        }
-                      />
-                      {submitted && !phrase.value.trim() && (
-                        <p className="watch-field-error" id={`phrase-error-${String(phrase.id)}`}>
-                          {t("enterProductName")}
-                        </p>
-                      )}
                     </div>
                   ))}
                 </div>
@@ -233,6 +283,12 @@ export function AddWatchPage() {
                     </p>
                   )}
                 </div>
+                <PriceRange
+                  maximum={priceCents}
+                  minimum={minimum}
+                  onChange={setMinimum}
+                  hasError={hasMinimumError}
+                />
               </fieldset>
               {saveError !== null && (
                 <p role="alert" className="error">
@@ -245,7 +301,9 @@ export function AddWatchPage() {
                 </Button>
                 <Button
                   type="submit"
-                  disabled={isBusy || (submitted && (hasPhraseError || hasPriceError))}
+                  disabled={
+                    isBusy || (submitted && (hasPhraseError || hasPriceError || hasMinimumError))
+                  }
                 >
                   {isBusy ? t("saving") : saveLabel}
                 </Button>

@@ -25,6 +25,7 @@ pub async fn search_products(
     app: AppHandle,
     auth: State<'_, AuthState>,
     state: State<'_, SearchState>,
+    notification_day: String,
 ) -> Result<SearchResults, AppMessage> {
     let _operation = state
         .operation
@@ -81,6 +82,10 @@ pub async fn search_products(
         .await
         .map_err(|error| error.message())?;
 
+    let fetched: std::collections::HashSet<_> = messages
+        .iter()
+        .map(|message| (message.chat_id.clone(), message.message_id))
+        .collect();
     repository
         .merge(account, messages, summary)
         .await
@@ -95,10 +100,28 @@ pub async fn search_products(
         .await
         .map_err(|error| error.message())?;
 
-    Ok(SearchResults {
-        matches: match_messages(&messages, &current_watches),
-        summary,
-    })
+    let matches = match_messages(&messages, &current_watches);
+    let notifications: Vec<_> = matches
+        .iter()
+        .filter(|result| {
+            fetched.contains(&(result.message.chat_id.clone(), result.message.message_id))
+        })
+        .cloned()
+        .collect();
+    if let Err(error) =
+        crate::notification::enqueue(&app, account, &notifications, notification_day).await
+    {
+        use tauri::Emitter;
+        let _ = app.emit(
+            "notifications:status",
+            crate::notification::DeliveryStatus {
+                failure: Some(error),
+                ..Default::default()
+            },
+        );
+    }
+
+    Ok(SearchResults { matches, summary })
 }
 
 #[tauri::command]

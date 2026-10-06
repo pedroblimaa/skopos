@@ -28,16 +28,18 @@ pub(crate) fn match_messages(messages: &[SourceMessage], watches: &[Watch]) -> V
                             && share_product_name(&message.text, &matching))
                 })
                 .collect();
+            let minimum = watch.minimum_price_cents();
             let price = related
                 .iter()
                 .map(|price| price.cents)
                 .filter(|price| {
-                    watch
-                        .max_price_cents
-                        .is_none_or(|ceiling| *price <= ceiling)
+                    *price >= minimum
+                        && watch
+                            .max_price_cents
+                            .is_none_or(|ceiling| *price <= ceiling)
                 })
                 .min();
-            if watch.max_price_cents.is_some() && price.is_none() {
+            if (watch.max_price_cents.is_some() || minimum > 0) && price.is_none() {
                 continue;
             }
 

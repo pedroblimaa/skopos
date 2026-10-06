@@ -5,7 +5,12 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { AppShell } from "./AppShell";
 import type { SessionStatus } from "../../telegram";
 
-const api = vi.hoisted(() => ({ status: vi.fn(), signOut: vi.fn(), getProfilePhoto: vi.fn() }));
+const api = vi.hoisted(() => ({
+  status: vi.fn(),
+  signOut: vi.fn(),
+  getProfilePhoto: vi.fn(),
+  onNotificationStatus: vi.fn(),
+}));
 vi.mock("../../telegram", () => ({
   telegram: api,
 }));
@@ -14,6 +19,7 @@ beforeEach(() => {
   api.status.mockResolvedValue({ authorized: true, displayName: "Pedro" });
   api.signOut.mockResolvedValue(undefined);
   api.getProfilePhoto.mockResolvedValue(null);
+  api.onNotificationStatus.mockResolvedValue(vi.fn());
 });
 afterEach(cleanup);
 

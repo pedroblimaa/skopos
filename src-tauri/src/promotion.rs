@@ -20,7 +20,7 @@ pub(crate) struct SourceMessage {
     pub image: Option<String>,
 }
 
-#[derive(Serialize)]
+#[derive(Clone, Serialize)]
 #[serde(rename_all = "camelCase")]
 pub(crate) struct ProductMatch {
     pub watch_id: i64,

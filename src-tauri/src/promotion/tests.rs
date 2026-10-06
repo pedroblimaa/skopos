@@ -18,6 +18,7 @@ fn watch(id: i64, name: &str, ceiling: Option<i64>) -> Watch {
         id,
         phrases: vec![name.into()],
         max_price_cents: ceiling,
+        min_price_cents: None,
     }
 }
 
@@ -262,4 +263,89 @@ async fn reports_storage_failure_without_publishing_database_details() {
         .merge(1, vec![], SearchSummary::default())
         .await
         .is_err());
+}
+
+#[test]
+fn minimum_price_filters_accessories_and_keeps_inclusive_boundaries() {
+    let mut product = watch(1, "Dishwasher", Some(500003));
+    for (text, expected) in [
+        ("Detergent for Dishwasher R$ 18", false),
+        ("Dishwasher R$ 999,99", false),
+        ("Dishwasher R$ 1.000", true),
+        ("Dishwasher R$ 5.000,03", true),
+        ("Dishwasher R$ 5.000,04", false),
+        ("Dishwasher without price", false),
+    ] {
+        assert_eq!(
+            !match_messages(&[message(text)], std::slice::from_ref(&product)).is_empty(),
+            expected,
+            "{text}"
+        );
+    }
+
+    product.min_price_cents = Some(0);
+    assert_eq!(
+        match_messages(
+            &[message("Detergent for Dishwasher R$ 18")],
+            std::slice::from_ref(&product)
+        )
+        .len(),
+        1
+    );
+
+    product.max_price_cents = None;
+    product.min_price_cents = Some(1800);
+    assert!(match_messages(
+        &[message("Dishwasher without price")],
+        std::slice::from_ref(&product)
+    )
+    .is_empty());
+    assert!(match_messages(
+        &[message("Dishwasher R$ 17,99")],
+        std::slice::from_ref(&product)
+    )
+    .is_empty());
+    assert_eq!(
+        match_messages(
+            &[message("Dishwasher R$ 18")],
+            std::slice::from_ref(&product)
+        )
+        .len(),
+        1
+    );
+
+    product.min_price_cents = None;
+    assert_eq!(
+        match_messages(&[message("Dishwasher without price")], &[product]).len(),
+        1
+    );
+}
+
+#[tokio::test]
+async fn saved_messages_rematch_after_minimum_edits_without_deleting_sources() {
+    let path =
+        std::env::temp_dir().join(format!("skopos-min-rematch-{}.sqlite", std::process::id()));
+    let repository = ResultRepository::new(path.clone());
+    let mut cheap = message("Detergent for Dishwasher R$ 18");
+    cheap.message_id = 2;
+    repository
+        .merge(
+            77,
+            vec![cheap, message("Dishwasher R$ 1.526,88")],
+            SearchSummary::default(),
+        )
+        .await
+        .unwrap();
+    let messages = repository.load(77).await.unwrap().0;
+    let mut product = watch(1, "Dishwasher", Some(500000));
+
+    assert_eq!(
+        match_messages(&messages, std::slice::from_ref(&product)).len(),
+        1
+    );
+
+    product.min_price_cents = Some(0);
+    assert_eq!(match_messages(&messages, &[product]).len(), 2);
+    assert_eq!(repository.load(77).await.unwrap().0.len(), 2);
+    std::fs::remove_file(path).unwrap();
 }

@@ -1,4 +1,4 @@
-export function parsePriceCents(value: string): number | null {
+export function parsePriceCents(value: string, allowZero = false): number | null {
   const trimmed = value.trim();
   if (!trimmed) return null;
 
@@ -7,5 +7,9 @@ export function parsePriceCents(value: string): number | null {
 
   const [reais, centavos = ""] = normalized.split(",");
   const cents = Number(reais.replace(/\./g, "")) * 100 + Number(centavos.padEnd(2, "0"));
-  return Number.isSafeInteger(cents) && cents > 0 ? cents : NaN;
+  return Number.isSafeInteger(cents) && (cents > 0 || (allowZero && cents === 0)) ? cents : NaN;
+}
+
+export function isMinimumPriceInvalid(minimum: number | null, maximum: number | null): boolean {
+  return Number.isNaN(minimum) || (minimum !== null && maximum !== null && minimum > maximum);
 }

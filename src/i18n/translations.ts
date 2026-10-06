@@ -1,6 +1,25 @@
 import type { AppMessage } from "../app-message";
 
 const en = {
+  notifications: "Notifications",
+  telegramNotifications: "Save to Telegram",
+  desktopNotifications: "Desktop alerts",
+  notificationsHelp:
+    "New promotions go to Saved Messages after each search, without setup. This saves messages; phone alerts are not guaranteed.",
+  uncertainNotifications: "Delivery could not be confirmed for {count} promotions.",
+  retryNotifications: "Retry uncertain messages",
+  retryNotificationsWarning:
+    "Telegram may already have received these messages. Retrying can send duplicates.",
+  confirmRetryNotifications: "Retry anyway",
+  loadingNotifications: "Loading notification settings…",
+  closeNotifications: "Close",
+  notificationStorage: "Could not access notification settings or delivery history.",
+  notificationFailed: "Could not deliver notifications. Your search results are saved.",
+  notificationUncertain:
+    "Telegram delivery could not be confirmed. Check Saved Messages before retrying in Notifications.",
+  notificationPhoto: "Telegram could not accept this promotion image.",
+  notificationDesktop: "Could not show a desktop alert. Check system notification settings.",
+  notificationRateLimit: "Telegram limited message delivery. Try again in {seconds} seconds.",
   openLinkFailed: "Could not open the link. Try again.",
   promotionImage: "Promotion image from {chat}",
   searchNow: "Search now",
@@ -138,6 +157,10 @@ const en = {
   enterProductName: "Enter a product name.",
   addAlternativeName: "Add alternative name",
   maximumPrice: "Maximum price",
+  priceRange: "Price range",
+  minimumPrice: "Minimum price",
+  minimumPriceHelp: "Defaults to 20% of the maximum.",
+  minimumPriceValidation: "Enter a price of zero or more, no higher than the maximum.",
   optional: "(optional)",
   priceValidation: "Enter a valid price greater than zero, for example 3.500,00.",
   cancel: "Cancel",
@@ -176,7 +199,7 @@ const en = {
   qrMigrationFailed: "Telegram could not complete the QR migration. Try again.",
   qrLoginIncomplete: "Telegram did not finish QR login. Scan the refreshed code again.",
   invalidPhrase: "Enter every search phrase before saving.",
-  invalidPrice: "Enter a valid price greater than zero.",
+  invalidPrice: "Enter a valid price range: minimum from zero, maximum greater than zero.",
   productNotFound: "This product no longer exists.",
   watchStorage: "Could not save or load products on this device.",
   watchStorageOpen: "Could not open local product storage.",
@@ -194,6 +217,27 @@ export type TranslationKey = keyof typeof en;
 export type Language = "pt-BR" | "en";
 
 const ptBR: Record<TranslationKey, string> = {
+  notifications: "Notificações",
+  telegramNotifications: "Salvar no Telegram",
+  desktopNotifications: "Alertas no computador",
+  notificationsHelp:
+    "Novas promoções vão para Mensagens Salvas após cada busca, sem configuração. Isso salva mensagens; alertas no celular não são garantidos.",
+  uncertainNotifications: "Não foi possível confirmar o envio de {count} promoções.",
+  retryNotifications: "Reenviar mensagens incertas",
+  retryNotificationsWarning:
+    "O Telegram pode já ter recebido essas mensagens. Reenviar pode gerar duplicatas.",
+  confirmRetryNotifications: "Reenviar mesmo assim",
+  loadingNotifications: "Carregando notificações…",
+  closeNotifications: "Fechar",
+  notificationStorage: "Não foi possível acessar as configurações ou o histórico de envios.",
+  notificationFailed:
+    "Não foi possível enviar as notificações. Os resultados da busca estão salvos.",
+  notificationUncertain:
+    "Não foi possível confirmar o envio no Telegram. Confira Mensagens Salvas antes de reenviar em Notificações.",
+  notificationPhoto: "O Telegram não aceitou a imagem desta promoção.",
+  notificationDesktop:
+    "Não foi possível mostrar o alerta. Confira as notificações nas configurações do sistema.",
+  notificationRateLimit: "O Telegram limitou os envios. Tente novamente em {seconds} segundos.",
   openLinkFailed: "Não foi possível abrir o link. Tente novamente.",
   promotionImage: "Imagem da promoção em {chat}",
   searchNow: "Buscar agora",
@@ -337,6 +381,10 @@ const ptBR: Record<TranslationKey, string> = {
   enterProductName: "Digite um nome de produto.",
   addAlternativeName: "Adicionar nome alternativo",
   maximumPrice: "Preço máximo",
+  priceRange: "Faixa de preço",
+  minimumPrice: "Preço mínimo",
+  minimumPriceHelp: "Padrão é 20% do maximo",
+  minimumPriceValidation: "Digite um preço a partir de zero, até o valor máximo.",
   optional: "(opcional)",
   priceValidation: "Digite um preço válido maior que zero, por exemplo 3.500,00.",
   cancel: "Cancelar",
@@ -379,7 +427,7 @@ const ptBR: Record<TranslationKey, string> = {
   qrLoginIncomplete:
     "O Telegram não concluiu o login por QR. Escaneie o código atualizado novamente.",
   invalidPhrase: "Preencha todos os nomes para busca antes de salvar.",
-  invalidPrice: "Digite um preço válido maior que zero.",
+  invalidPrice: "Digite uma faixa válida: mínimo a partir de zero e máximo maior que zero.",
   productNotFound: "Este produto não existe mais.",
   watchStorage: "Não foi possível salvar ou carregar os produtos neste dispositivo.",
   watchStorageOpen: "Não foi possível abrir o armazenamento local dos produtos.",

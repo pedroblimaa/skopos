@@ -12,8 +12,12 @@ describe("manual promotion search", () => {
     await command("clear_search_results", { before: null });
     const watches = await command<{ id: number }[]>("list_watches");
     for (const watch of watches) await command("delete_watch", { id: watch.id });
-    await command("create_watch", { input: { phrases: ["Controle"], maxPriceCents: 50000 } });
-    await command("create_watch", { input: { phrases: ["Dishwasher"], maxPriceCents: null } });
+    await command("create_watch", {
+      input: { phrases: ["Controle"], maxPriceCents: 50000, minPriceCents: null },
+    });
+    await command("create_watch", {
+      input: { phrases: ["Dishwasher"], maxPriceCents: null, minPriceCents: null },
+    });
     const chats = await command<unknown[]>("list_chats");
     await command("save_selected_chats", { chats });
 
@@ -24,6 +28,42 @@ describe("manual promotion search", () => {
     await enableApp();
     await $("h1=Products").waitForDisplayed();
     await browser.waitUntil(async () => await $("button[aria-label='Search now']").isEnabled());
+  });
+
+  it("filters cheap accessories then rematches saved results after editing the minimum", async () => {
+    const product = await command<{ id: number }>("create_watch", {
+      input: { phrases: ["Dishwasher"], maxPriceCents: 500000, minPriceCents: 0 },
+    });
+    await command("configure", {
+      scenario: {
+        authorized: true,
+        accountId: 77,
+        promotionMessages: ["Detergent for Dishwasher R$ 18", "Dishwasher R$ 1.526,88"],
+      },
+    });
+    const all = await command<SearchResults>("search_products");
+    const original = all.matches.filter((match) => match.watchId === product.id);
+    assert.ok(original.some((match) => match.priceCents === 1800));
+    assert.ok(original.some((match) => match.priceCents === 152688));
+
+    await command("update_watch", {
+      id: product.id,
+      input: { phrases: ["Dishwasher"], maxPriceCents: 500000, minPriceCents: null },
+    });
+    const filtered = await command<SearchResults>("load_search_results");
+    const automatic = filtered.matches.filter((match) => match.watchId === product.id);
+    assert.ok(automatic.length > 0);
+    assert.ok(automatic.every((match) => match.priceCents === 152688));
+
+    await command("update_watch", {
+      id: product.id,
+      input: { phrases: ["Dishwasher"], maxPriceCents: 500000, minPriceCents: 0 },
+    });
+    const restored = await command<SearchResults>("load_search_results");
+    assert.equal(
+      restored.matches.filter((match) => match.watchId === product.id).length,
+      original.length,
+    );
   });
 
   it("rejects search without products or chats and rejects an invalid cleanup cutoff", async () => {
@@ -42,7 +82,7 @@ describe("manual promotion search", () => {
 
   it("validates product criteria and promotion links at the native boundary", async () => {
     const watches = await command<{ id: number }[]>("list_watches");
-    const input = { phrases: [], maxPriceCents: null };
+    const input = { phrases: [], maxPriceCents: null, minPriceCents: null };
 
     assert.deepEqual(await commandError("create_watch", { input }), { code: "invalidPhrase" });
     assert.deepEqual(await commandError("update_watch", { id: watches[0].id, input }), {
@@ -137,13 +177,13 @@ describe("manual promotion search", () => {
 
   it("shares a qualifying offer across overlapping watches with separate ceilings", async () => {
     const broad = await command<{ id: number }>("create_watch", {
-      input: { phrases: ["RTX 5070"], maxPriceCents: 400000 },
+      input: { phrases: ["RTX 5070"], maxPriceCents: 400000, minPriceCents: null },
     });
     const specific = await command<{ id: number }>("create_watch", {
-      input: { phrases: ["RTX 5070 ASUS"], maxPriceCents: 400000 },
+      input: { phrases: ["RTX 5070 ASUS"], maxPriceCents: 400000, minPriceCents: null },
     });
     const cheaper = await command<{ id: number }>("create_watch", {
-      input: { phrases: ["RTX 5070"], maxPriceCents: 380000 },
+      input: { phrases: ["RTX 5070"], maxPriceCents: 380000, minPriceCents: null },
     });
     await command("configure", {
       scenario: { authorized: true, accountId: 77, promotionMessages: ["RTX 5070 ASUS R$ 3.900"] },
@@ -267,6 +307,9 @@ async function enableApp() {
 }
 
 async function command<T>(name: string, args?: Record<string, unknown>): Promise<T> {
+  if (name === "search_products" || name === "retry_uncertain_notifications") {
+    args = { notificationDay: new Date().toLocaleDateString("pt-BR"), ...args };
+  }
   return browser.execute(
     (commandName, commandArgs) => {
       const api = (
@@ -284,6 +327,9 @@ async function command<T>(name: string, args?: Record<string, unknown>): Promise
 }
 
 async function commandError(name: string, args?: Record<string, unknown>): Promise<unknown> {
+  if (name === "search_products") {
+    args = { notificationDay: new Date().toLocaleDateString("pt-BR"), ...args };
+  }
   return browser.execute(
     async (commandName, commandArgs) => {
       const api = (

@@ -1,4 +1,9 @@
 export const staticMessageCodes = [
+  "notificationStorage",
+  "notificationFailed",
+  "notificationUncertain",
+  "notificationPhoto",
+  "notificationDesktop",
   "openLinkFailed",
   "searchStorage",
   "searchFailed",
@@ -52,6 +57,7 @@ export type AppMessage =
   | { code: (typeof staticMessageCodes)[number] }
   | { code: "floodWaitSeconds"; params: { seconds: number } }
   | { code: "chatRateLimitSeconds"; params: { seconds: number } }
+  | { code: "notificationRateLimit"; params: { seconds: number } }
   | { code: "telegramRejected"; params: { name: string } }
   | { code: "deliveryEmail"; params: { email: string } }
   | { code: "deliveryFragment"; params: { url: string } }
@@ -80,6 +86,7 @@ export function isAppMessage(value: unknown): value is AppMessage {
   switch (value.code) {
     case "floodWaitSeconds":
     case "chatRateLimitSeconds":
+    case "notificationRateLimit":
       return (
         "seconds" in params && typeof params.seconds === "number" && Number.isFinite(params.seconds)
       );
