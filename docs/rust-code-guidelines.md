@@ -1,6 +1,6 @@
 # Rust code guidelines for Skopos
 
-Use this guide when adding or reviewing code in `src-tauri`. It applies to the current Telegram login code and to future Rust features. Prefer code that makes state changes, network calls, and failure paths easy to follow. These are review rules, not a mandate to create a layer for every function.
+Use this guide when adding or reviewing code in `src-tauri`, including login, chats, watches, promotion matching, search, and links. Prefer code that makes state changes, network calls, and failure paths easy to follow. These are review rules, not a mandate to create a layer for every function.
 
 ## Organize by responsibility
 
@@ -9,7 +9,7 @@ Use this guide when adding or reviewing code in `src-tauri`. It applies to the c
 - Within a feature, use folders to group responsibilities. Keep `mod.rs` focused on declarations and selective exports; put implementations in files such as `commands.rs`, `workflow.rs`, or `mapping.rs`, with `tests.rs` alongside them. Keep the Telegram response fixture in `telegram/e2e/`, separating scenario controls from protocol responses.
 - Follow the separation shown by Tauri's official plugin layout when useful: setup and exports in the entry file, commands at the Tauri boundary, and implementation in feature modules. Apply the responsibilities, not a fixed file template for every feature.
 - Keep Tauri commands thin. A command should validate its input, call the feature operation, and translate the result into a stable value for the frontend. It should not own a long Telegram protocol workflow.
-- Put Telegram calls and Telegram-specific types in the Telegram adapter. Keep future parsing and matching code independent of `grammers` types, as described in `AGENTS.md`.
+- Put Telegram calls and Telegram-specific types in the Telegram adapter. Keep parsing and matching in `promotion/` independent of `grammers` types, as described in `AGENTS.md`.
 - Put session file access in one small storage or client-initialization area. Avoid opening a database, starting a client, emitting events, and changing login state in the same function.
 - Split a module when it contains distinct responsibilities or several workflows that can be understood separately. Do not split files just to satisfy a line-count target. Use narrow visibility (`pub(super)` or private) until another module needs an item.
 - Name modules for the feature or responsibility (`auth`, `session`, `qr`, `phone`), and functions for actions (`request_code`, `complete_login`). Follow Rust's usual `snake_case` and `UpperCamelCase` conventions.

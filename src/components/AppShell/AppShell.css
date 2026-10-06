@@ -145,6 +145,28 @@
   font-size: 13px;
   transition: background-color var(--motion-feedback) var(--ease-standard);
 }
+.app-notifications {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  width: 100%;
+  padding: 11px 12px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: var(--color-transparent);
+  color: var(--color-text);
+  text-align: left;
+  font-size: 13px;
+}
+.app-notifications:hover {
+  background: var(--color-surface-hover);
+}
+.notification-error-action {
+  border: 0;
+  background: var(--color-transparent);
+  color: var(--color-link);
+  text-decoration: underline;
+}
 .app-language {
   display: grid;
   gap: var(--space-2);

@@ -9,6 +9,41 @@ pub(in crate::telegram) struct TelegramApi {
 }
 
 impl TelegramApi {
+    pub(in crate::telegram) async fn save_message(
+        &self,
+        caption: &str,
+        photo: Option<Vec<u8>>,
+    ) -> Result<(), crate::app_message::AppMessage> {
+        #[cfg(any(test, feature = "e2e"))]
+        if let Some(fixture) = &self.fixture {
+            return fixture
+                .save_message(caption, photo.is_some())
+                .map_err(super::super::saved::delivery_error);
+        }
+
+        let mut message = grammers_client::message::InputMessage::new()
+            .html(caption)
+            .link_preview(false);
+        if let Some(bytes) = photo {
+            let mut stream = bytes.as_slice();
+            let upload = self
+                .client
+                .upload_stream(&mut stream, bytes.len(), "promotion.jpg".into())
+                .await
+                .map_err(super::super::saved::upload_error)?;
+            message = message.photo(upload);
+        }
+
+        self.client
+            .send_message(
+                grammers_session::types::PeerId::self_user().to_ambient_ref(),
+                message,
+            )
+            .await
+            .map(|_| ())
+            .map_err(super::super::saved::delivery_error)
+    }
+
     pub(in crate::telegram) async fn chat_photo(
         &self,
         location: tl::enums::InputFileLocation,

@@ -25,8 +25,14 @@ beforeEach(() => {
     id: 1,
     phrases: ["Laptop Vivobook S14"],
     maxPriceCents: null,
+    minPriceCents: null,
   });
-  api.updateWatch.mockResolvedValue({ id: 7, phrases: ["Laptop OLED"], maxPriceCents: null });
+  api.updateWatch.mockResolvedValue({
+    id: 7,
+    phrases: ["Laptop OLED"],
+    maxPriceCents: null,
+    minPriceCents: null,
+  });
 });
 afterEach(cleanup);
 
@@ -78,7 +84,9 @@ describe("AddWatchPage", () => {
         resolve = res;
         reject = rej;
       });
-      api.listWatches.mockResolvedValue([{ id: 7, phrases: ["Laptop"], maxPriceCents: null }]);
+      api.listWatches.mockResolvedValue([
+        { id: 7, phrases: ["Laptop"], maxPriceCents: null, minPriceCents: null },
+      ]);
       const saveCommand = kind === "create" ? api.createWatch : api.updateWatch;
       saveCommand.mockReturnValueOnce(pendingSave);
       renderPage(kind === "create" ? "/watches/new" : "/watches/7/edit");
@@ -106,6 +114,7 @@ describe("AddWatchPage", () => {
             id: kind === "update" ? 7 : 1,
             phrases: ["First product"],
             maxPriceCents: null,
+            minPriceCents: null,
           });
         } else {
           reject(new Error("Late failure"));
@@ -137,7 +146,12 @@ describe("AddWatchPage", () => {
     expect(screen.getByLabelText("Alternative name 1")).toHaveAttribute("aria-invalid", "true");
     expect(api.createWatch).not.toHaveBeenCalled();
 
+    const removedRow = screen.getByLabelText("Alternative name 1").closest(".watch-phrase-row");
     fireEvent.click(screen.getByRole("button", { name: "Remove alternative name 1" }));
+    expect(removedRow).toHaveAttribute("inert");
+    expect(screen.getByRole("button", { name: "Add alternative name" })).toHaveFocus();
+    if (!removedRow) throw new Error("Alternative-name row is missing");
+    fireEvent.animationEnd(removedRow);
 
     expect(screen.getByLabelText("Alternative name 1")).toHaveValue("Asus S14");
 
@@ -150,18 +164,20 @@ describe("AddWatchPage", () => {
       expect(api.createWatch).toHaveBeenCalledWith({
         phrases: ["Laptop", "Asus S14", "Vivobook"],
         maxPriceCents: null,
+        minPriceCents: null,
       });
     });
   });
 
   it("loads a product, updates its ordered names and clears its price ceiling", async () => {
     api.listWatches.mockResolvedValue([
-      { id: 7, phrases: ["Laptop", "Asus"], maxPriceCents: 350001 },
+      { id: 7, phrases: ["Laptop", "Asus"], maxPriceCents: 350001, minPriceCents: null },
     ]);
     api.updateWatch.mockResolvedValue({
       id: 7,
       phrases: ["Laptop OLED", "Vivobook"],
       maxPriceCents: null,
+      minPriceCents: null,
     });
 
     renderPage("/watches/7/edit");
@@ -181,6 +197,7 @@ describe("AddWatchPage", () => {
     expect(api.updateWatch).toHaveBeenCalledWith(7, {
       phrases: ["Laptop OLED", "Vivobook"],
       maxPriceCents: null,
+      minPriceCents: null,
     });
 
     expect(api.createWatch).not.toHaveBeenCalled();
@@ -191,7 +208,9 @@ describe("AddWatchPage", () => {
   });
 
   it("preserves edited values on failure and disables fields while saving", async () => {
-    api.listWatches.mockResolvedValue([{ id: 7, phrases: ["Laptop"], maxPriceCents: null }]);
+    api.listWatches.mockResolvedValue([
+      { id: 7, phrases: ["Laptop"], maxPriceCents: null, minPriceCents: null },
+    ]);
     let reject!: (reason: unknown) => void;
     api.updateWatch.mockReturnValueOnce(
       new Promise((_resolve, rej) => {
@@ -292,6 +311,7 @@ describe("AddWatchPage", () => {
       expect(api.createWatch).toHaveBeenCalledWith({
         phrases: ["Laptop Vivobook S14", "Asus Vivobook 14"],
         maxPriceCents: 350000,
+        minPriceCents: null,
       });
     });
 
@@ -305,7 +325,11 @@ describe("AddWatchPage", () => {
     fireEvent.change(screen.getByLabelText("Product name"), { target: { value: "RTX 5070" } });
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
     await waitFor(() => {
-      expect(api.createWatch).toHaveBeenCalledWith({ phrases: ["RTX 5070"], maxPriceCents: null });
+      expect(api.createWatch).toHaveBeenCalledWith({
+        phrases: ["RTX 5070"],
+        maxPriceCents: null,
+        minPriceCents: null,
+      });
     });
   });
 
@@ -333,3 +357,70 @@ describe("AddWatchPage", () => {
     expect(screen.getByRole("heading", { name: "Products home" })).toBeInTheDocument();
   });
 });
+
+it("follows the maximum until a custom minimum is entered and clears back to automatic", async () => {
+  renderPage();
+  fireEvent.change(screen.getByLabelText("Product name"), { target: { value: "Dishwasher" } });
+  fireEvent.click(screen.getByText("Price range"));
+  const minimum = screen.getByLabelText("Minimum price");
+  expect(minimum).toHaveValue("0,00");
+
+  fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "5000,03" } });
+  expect(minimum).toHaveValue("1000,00");
+
+  fireEvent.change(minimum, { target: { value: "1200" } });
+  fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "6000" } });
+  expect(minimum).toHaveValue("1200");
+
+  fireEvent.change(minimum, { target: { value: "" } });
+  expect(minimum).toHaveValue("");
+  fireEvent.blur(minimum);
+  expect(minimum).toHaveValue("1200,00");
+  fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "7000" } });
+  expect(minimum).toHaveValue("1400,00");
+  fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+
+  await waitFor(() => {
+    expect(api.createWatch).toHaveBeenCalledWith({
+      phrases: ["Dishwasher"],
+      maxPriceCents: 700000,
+      minPriceCents: null,
+    });
+  });
+});
+
+it("restores a custom minimum when editing and persists zero to disable it", async () => {
+  api.listWatches.mockResolvedValue([
+    { id: 7, phrases: ["Dishwasher"], maxPriceCents: 500000, minPriceCents: 120000 },
+  ]);
+  renderPage("/watches/7/edit");
+  await screen.findByLabelText("Minimum price");
+  expect(screen.getByLabelText("Minimum price")).toHaveValue("1200,00");
+
+  fireEvent.change(screen.getByLabelText("Minimum price"), { target: { value: "0" } });
+  fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+  await waitFor(() => {
+    expect(api.updateWatch).toHaveBeenCalledWith(7, {
+      phrases: ["Dishwasher"],
+      maxPriceCents: 500000,
+      minPriceCents: 0,
+    });
+  });
+});
+
+it.each(["-1", "abc", "5000,01"])(
+  "rejects invalid minimum %s and opens its validation",
+  (value) => {
+    renderPage();
+    fireEvent.change(screen.getByLabelText("Product name"), { target: { value: "Dishwasher" } });
+    fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "5000" } });
+    fireEvent.change(screen.getByLabelText("Minimum price"), { target: { value } });
+    fireEvent.click(screen.getByRole("button", { name: "Add product" }));
+
+    expect(api.createWatch).not.toHaveBeenCalled();
+    expect(
+      screen.getByText("Enter a price of zero or more, no higher than the maximum."),
+    ).toBeVisible();
+  },
+);

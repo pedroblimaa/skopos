@@ -41,6 +41,7 @@ pub(crate) async fn configure(
 pub(crate) struct Inspect {
     qr_starts: u32,
     qr_active: bool,
+    saved_messages: Vec<serde_json::Value>,
 }
 
 #[tauri::command]
@@ -49,10 +50,12 @@ pub(crate) async fn inspect(
     auth: State<'_, AuthState>,
 ) -> Result<Inspect, String> {
     let qr_starts = state.0.lock().unwrap().qr_requests;
+    let saved_messages = state.0.lock().unwrap().saved_messages.clone();
 
     Ok(Inspect {
         qr_starts,
         qr_active: matches!(auth.login.lock().await.step, LoginStep::Qr),
+        saved_messages,
     })
 }
 

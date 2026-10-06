@@ -12,6 +12,37 @@ beforeEach(() => {
 });
 
 describe("Telegram IPC adapter", () => {
+  it("uses notification commands and typed progress events", async () => {
+    const settings = {
+      telegramEnabled: true,
+      desktopEnabled: true,
+      language: "en",
+    };
+    await telegram.notificationSettings();
+    await telegram.saveNotificationSettings(settings);
+    await telegram.notificationStatus();
+    await telegram.retryUncertainNotifications();
+
+    expect(api.invoke.mock.calls).toEqual([
+      ["notification_settings", undefined],
+      ["save_notification_settings", { settings }],
+      ["notification_status", undefined],
+      [
+        "retry_uncertain_notifications",
+        { notificationDay: new Date().toLocaleDateString("pt-BR") },
+      ],
+    ]);
+    const callback = vi.fn();
+    const delivery = { pending: 1, uncertain: 0, failure: null };
+    api.listen.mockImplementationOnce(
+      (_name: string, receive: (event: { payload: typeof delivery }) => void) => {
+        receive({ payload: delivery });
+        return Promise.resolve(() => {});
+      },
+    );
+    await telegram.onNotificationStatus(callback);
+    expect(callback).toHaveBeenCalledWith(delivery);
+  });
   it("uses typed search commands and preserves cleanup cutoffs", async () => {
     await telegram.searchProducts();
     await telegram.loadSearchResults();
@@ -19,7 +50,7 @@ describe("Telegram IPC adapter", () => {
     await telegram.clearSearchResults(150);
 
     expect(api.invoke.mock.calls).toEqual([
-      ["search_products", undefined],
+      ["search_products", { notificationDay: new Date().toLocaleDateString("pt-BR") }],
       ["load_search_results", undefined],
       ["clear_search_results", { before: null }],
       ["clear_search_results", { before: 150 }],
@@ -56,9 +87,13 @@ describe("Telegram IPC adapter", () => {
     await telegram.submitCode("12345");
     await telegram.submitPassword("secret");
     await telegram.signOut();
-    await telegram.createWatch({ phrases: ["RTX 5070"], maxPriceCents: null });
+    await telegram.createWatch({ phrases: ["RTX 5070"], maxPriceCents: null, minPriceCents: null });
     await telegram.listWatches();
-    await telegram.updateWatch(7, { phrases: ["RTX 5080"], maxPriceCents: 400000 });
+    await telegram.updateWatch(7, {
+      phrases: ["RTX 5080"],
+      maxPriceCents: 400000,
+      minPriceCents: null,
+    });
     await telegram.deleteWatch(7);
 
     expect(api.invoke.mock.calls).toEqual([
@@ -70,9 +105,15 @@ describe("Telegram IPC adapter", () => {
       ["submit_phone_code", { code: "12345" }],
       ["submit_password", { password: "secret" }],
       ["sign_out", undefined],
-      ["create_watch", { input: { phrases: ["RTX 5070"], maxPriceCents: null } }],
+      [
+        "create_watch",
+        { input: { phrases: ["RTX 5070"], maxPriceCents: null, minPriceCents: null } },
+      ],
       ["list_watches", undefined],
-      ["update_watch", { id: 7, input: { phrases: ["RTX 5080"], maxPriceCents: 400000 } }],
+      [
+        "update_watch",
+        { id: 7, input: { phrases: ["RTX 5080"], maxPriceCents: 400000, minPriceCents: null } },
+      ],
       ["delete_watch", { id: 7 }],
     ]);
   });

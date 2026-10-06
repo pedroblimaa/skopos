@@ -29,6 +29,7 @@ pub(crate) struct Scenario {
     pub(in crate::telegram) search_error: bool,
     pub(in crate::telegram) promotion_photos: bool,
     pub(in crate::telegram) promotion_messages: Option<Vec<String>>,
+    pub(in crate::telegram) saved_message_error: Option<String>,
 }
 
 #[derive(Default)]
@@ -38,6 +39,7 @@ pub(in crate::telegram) struct Fixture {
     pub(super) qr_requests: u32,
     pub(super) refreshed: bool,
     pub(super) qr_reply: Option<QrReply>,
+    pub(super) saved_messages: Vec<serde_json::Value>,
 }
 
 pub(super) enum QrReply {
@@ -47,6 +49,32 @@ pub(super) enum QrReply {
 }
 
 impl FixtureState {
+    pub(in crate::telegram) fn save_message(
+        &self,
+        caption: &str,
+        has_photo: bool,
+    ) -> Result<(), InvocationError> {
+        let mut fixture = self.0.lock().unwrap();
+        let account = fixture.scenario.account_id.unwrap_or(77);
+        fixture.saved_messages.push(serde_json::json!({
+            "account": account,
+            "peer": "self",
+            "caption": caption,
+            "hasPhoto": has_photo,
+        }));
+
+        if let Some(error) = &fixture.scenario.saved_message_error {
+            if error == "DROPPED" {
+                return Err(InvocationError::Dropped);
+            }
+            if has_photo || !matches!(error.as_str(), "PHOTO_INVALID" | "IMAGE_PROCESS_FAILED") {
+                return Err(rpc(error));
+            }
+        }
+
+        Ok(())
+    }
+
     pub(in crate::telegram) fn invoke<R: tl::RemoteCall>(
         &self,
         request: &R,

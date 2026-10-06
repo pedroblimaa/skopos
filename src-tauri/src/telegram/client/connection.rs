@@ -59,6 +59,24 @@ async fn fetch_account_id(client: &TelegramApi) -> AuthResult<i64> {
 }
 
 impl AuthState {
+    pub(crate) async fn account_id(
+        &self,
+        app: &AppHandle,
+    ) -> Result<i64, crate::app_message::AppMessage> {
+        let context = self.client(app).await.map_err(|error| error.message())?;
+        if !context
+            .client
+            .is_authorized()
+            .await
+            .map_err(|_| crate::app_message::AppMessage::AuthNetwork)?
+        {
+            return Err(crate::app_message::AppMessage::RestartLogin);
+        }
+        context
+            .local_account_id()
+            .await
+            .map_err(|error| error.message())
+    }
     pub(in crate::telegram) async fn client(&self, app: &AppHandle) -> AuthResult<&ClientContext> {
         self.context
             .get_or_try_init(|| initialize_client(app))

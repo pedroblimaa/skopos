@@ -1,6 +1,8 @@
 # Skopos
 
-Skopos is a local-first desktop application for monitoring Telegram promotion chats. Telegram QR login, phone-code login, two-step verification, session restoration, and disconnect are implemented. Watches, promotion matching, and notifications are planned for later tasks.
+Skopos is a local desktop application for finding Telegram promotions. Connect Telegram, select promotion chats, add products with optional maximum BRL prices, and search messages from the last 24 hours. Login, session restoration, product editing, saved results, promotion photos, clickable web links, Telegram Saved Messages, and desktop notification summaries are implemented. Automatic monitoring remains planned.
+
+Saved results accumulate across searches and survive restarts. Products are shared across Telegram accounts; chat selections and promotion history are stored separately for each account. Editing a product rematches its saved messages. Clearing results removes local history; a later search can find those messages again.
 
 ## Prerequisites
 
@@ -31,6 +33,8 @@ TG_HASH=your-api-hash
 Run `pnpm tauri dev` or `pnpm tauri build --no-bundle` after saving `.env`. The Rust build reads the repository's `.env`; shell variables with the same names take precedence. The credentials are compiled into the native app, so rebuild after changing them. Builds without credentials still compile, but login displays a configuration error. `.env` is ignored by Git. Telegram sessions are stored in Skopos's local application data directory.
 
 ## Quality checks
+
+See [Saved Messages and desktop alerts](docs/notification-setup.md). Both switches initially default on; Telegram delivery uses the connected account without bot setup. Delivery history remains separate from saved results, so clearing results does not resend successful notifications.
 
 ```text
 pnpm check:local

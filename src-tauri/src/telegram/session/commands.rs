@@ -35,8 +35,10 @@ pub async fn sign_out(
     app: AppHandle,
     state: State<'_, AuthState>,
     search: State<'_, crate::telegram::search::SearchState>,
+    notifications: State<'_, crate::notification::NotificationState>,
 ) -> Result<(), AppMessage> {
     let _operation = search.cancel_and_wait().await;
+    let _notifications = notifications.cancel_and_wait().await;
     let context = state.client(&app).await.map_err(|error| error.message())?;
 
     workflow::sign_out(&state, context, &TauriEvents(&app))

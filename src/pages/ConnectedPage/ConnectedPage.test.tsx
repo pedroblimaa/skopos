@@ -22,8 +22,13 @@ vi.mock("../../telegram", () => ({
   telegram: api,
 }));
 const products: Watch[] = [
-  { id: 1, phrases: ["Laptop Vivobook S14", "Asus Vivobook 14"], maxPriceCents: 350000 },
-  { id: 2, phrases: ["RTX 5070"], maxPriceCents: null },
+  {
+    id: 1,
+    phrases: ["Laptop Vivobook S14", "Asus Vivobook 14"],
+    maxPriceCents: 350000,
+    minPriceCents: null,
+  },
+  { id: 2, phrases: ["RTX 5070"], maxPriceCents: null, minPriceCents: null },
 ];
 beforeEach(() => {
   Object.defineProperties(HTMLDialogElement.prototype, {
@@ -91,7 +96,7 @@ function CachedSession() {
 
 it("shows a product saved after navigating away from a pending initial list", async () => {
   let finish!: (value: Watch[]) => void;
-  const created = { id: 3, phrases: ["Controller"], maxPriceCents: null };
+  const created = { id: 3, phrases: ["Controller"], maxPriceCents: null, minPriceCents: null };
   api.listWatches
     .mockReturnValueOnce(
       new Promise<Watch[]>((resolve) => {

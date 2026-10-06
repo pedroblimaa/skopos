@@ -6,6 +6,7 @@ interface Watch {
   id: number;
   phrases: string[];
   maxPriceCents: number | null;
+  minPriceCents: number | null;
 }
 
 describe("product desktop flows", () => {
@@ -21,6 +22,63 @@ describe("product desktop flows", () => {
     });
     await enableApp();
     await $("h1=Products").waitForDisplayed();
+  });
+
+  it("persists automatic and custom minimums and restores the default on clearing", async () => {
+    await $("button[aria-label='Add product']").click();
+    await $("#phrase-0").setValue("Dishwasher");
+    await $("#max-price").setValue("5000,03");
+    await $(".watch-price-range > summary").click();
+    assert.equal(await $("#min-price").getValue(), "1000,00");
+    await browser.saveScreenshot("src-tauri/target/price-range-desktop.png");
+    const size = await browser.getWindowSize();
+    try {
+      await browser.setWindowSize(480, 760);
+      assert.equal(
+        await browser.execute(() => document.documentElement.scrollWidth <= window.innerWidth),
+        true,
+      );
+      await browser.saveScreenshot("src-tauri/target/price-range-narrow.png");
+    } finally {
+      await browser.setWindowSize(size.width, size.height);
+    }
+    await $("button=Add product").click();
+    await $("strong=Dishwasher").waitForDisplayed();
+    assert.equal((await command<Watch[]>("list_watches"))[0].minPriceCents, null);
+
+    await $("strong=Dishwasher").click();
+    await $("h1=Edit product").waitForDisplayed();
+    await $(".watch-price-range > summary").click();
+    await $("#min-price").setValue("1200");
+    await $("#max-price").setValue("6000");
+    assert.equal(await $("#min-price").getValue(), "1200");
+    await $("button=Save changes").click();
+    await $("strong=Dishwasher").waitForDisplayed();
+    await reloadProducts();
+    await $("strong=Dishwasher").waitForDisplayed();
+    assert.equal((await command<Watch[]>("list_watches"))[0].minPriceCents, 120000);
+
+    await $("strong=Dishwasher").click();
+    await $("h1=Edit product").waitForDisplayed();
+    await $(".watch-price-range > summary").click();
+    assert.equal(await $("#min-price").getValue(), "1200,00");
+    await $("#min-price").setValue("0");
+    await $("button=Save changes").click();
+    await $("strong=Dishwasher").waitForDisplayed();
+    assert.equal((await command<Watch[]>("list_watches"))[0].minPriceCents, 0);
+
+    await $("strong=Dishwasher").click();
+    await $("h1=Edit product").waitForDisplayed();
+    await $(".watch-price-range > summary").click();
+    await $("#min-price").clearValue();
+    await $("#max-price").click();
+    await browser.waitUntil(async () => (await $("#min-price").getValue()) === "1200,00");
+    assert.equal(await $("#min-price").getValue(), "1200,00");
+    await $("#max-price").setValue("7000");
+    assert.equal(await $("#min-price").getValue(), "1400,00");
+    await $("button=Save changes").click();
+    await $("strong=Dishwasher").waitForDisplayed();
+    assert.equal((await command<Watch[]>("list_watches"))[0].minPriceCents, null);
   });
 
   it("creates and reloads a locally saved product", async () => {
@@ -62,7 +120,12 @@ describe("product desktop flows", () => {
     await $("strong=Vivobook OLED").waitForDisplayed();
     const products = await command<Watch[]>("list_watches");
     assert.deepEqual(products, [
-      { id: saved.id, phrases: ["Vivobook OLED", "Asus OLED S14"], maxPriceCents: null },
+      {
+        id: saved.id,
+        phrases: ["Vivobook OLED", "Asus OLED S14"],
+        maxPriceCents: null,
+        minPriceCents: null,
+      },
     ]);
   });
 
@@ -214,7 +277,7 @@ describe("product desktop flows", () => {
   it("can cancel deletion, then delete only the selected product permanently", async () => {
     const saved = await seedProduct();
     const other = await command<Watch>("create_watch", {
-      input: { phrases: ["RTX 5070"], maxPriceCents: null },
+      input: { phrases: ["RTX 5070"], maxPriceCents: null, minPriceCents: null },
     });
     await reloadProducts();
     await $("strong=RTX 5070").waitForDisplayed();
@@ -253,7 +316,7 @@ describe("product desktop flows", () => {
       try {
         await api.core.invoke("update_watch", {
           id,
-          input: { phrases: ["Deleted"], maxPriceCents: null },
+          input: { phrases: ["Deleted"], maxPriceCents: null, minPriceCents: null },
         });
         return null;
       } catch (reason) {
@@ -438,7 +501,11 @@ describe("product desktop flows", () => {
 
 async function seedProduct() {
   const saved = await command<Watch>("create_watch", {
-    input: { phrases: ["Laptop Vivobook S14", "Asus Vivobook 14"], maxPriceCents: 350000 },
+    input: {
+      phrases: ["Laptop Vivobook S14", "Asus Vivobook 14"],
+      maxPriceCents: 350000,
+      minPriceCents: null,
+    },
   });
   await reloadProducts();
   await $("strong=Laptop Vivobook S14").waitForDisplayed();

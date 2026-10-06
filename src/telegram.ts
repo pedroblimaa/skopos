@@ -10,14 +10,26 @@ import type {
 } from "./telegram.model";
 import type { CreateWatch, Watch } from "./watch.model";
 import type { SearchResults } from "./promotion.model";
+import type { NotificationSettings, NotificationStatus } from "./notification.model";
 import { isAppMessage, type AppMessage } from "./app-message";
 
 export type { CodeRequest, LoginResult, QrToken, SessionStatus } from "./telegram.model";
 
 export const telegram = {
+  notificationSettings: () => command<NotificationSettings>("notification_settings"),
+  saveNotificationSettings: (settings: NotificationSettings) =>
+    command<NotificationSettings>("save_notification_settings", { settings }),
+  notificationStatus: () => command<NotificationStatus>("notification_status"),
+  retryUncertainNotifications: () =>
+    command<unknown>("retry_uncertain_notifications", { notificationDay: notificationDay() }).then(
+      () => {},
+    ),
+  onNotificationStatus: (callback: (status: NotificationStatus) => void) =>
+    onEvent<NotificationStatus>("notifications:status", callback),
   openPromotionLink: (url: string) =>
     command<unknown>("open_promotion_link", { url }).then(() => {}),
-  searchProducts: () => command<SearchResults>("search_products"),
+  searchProducts: () =>
+    command<SearchResults>("search_products", { notificationDay: notificationDay() }),
   loadSearchResults: () => command<SearchResults>("load_search_results"),
   clearSearchResults: (before: number | null) =>
     command<unknown>("clear_search_results", { before }).then(() => {}),
@@ -86,4 +98,8 @@ function testApi() {
       __TAURI__?: { core: { invoke: typeof invoke }; event: { listen: typeof listen } };
     }
   ).__TAURI__;
+}
+
+function notificationDay(): string {
+  return new Date().toLocaleDateString("pt-BR");
 }

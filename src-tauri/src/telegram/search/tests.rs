@@ -8,6 +8,30 @@ use grammers_client::{sender::RpcError, tl};
 use std::collections::HashSet;
 use tl::Serializable;
 
+#[tokio::test]
+async fn skips_selected_chats_that_disappeared_before_the_search() {
+    let (context, _) = test_context().await;
+    let auth = AuthState::default();
+    let state = SearchState::default();
+    let run = workflow::SearchRun {
+        api: &context.client,
+        auth: &auth,
+        state: &state,
+        generation: 0,
+        cancellation: 0,
+        since: 100,
+        until: 200,
+        saved_messages: HashSet::new(),
+    };
+
+    let (messages, summary) = workflow::search(&run, vec![chat("channel:999", None)], &[])
+        .await
+        .unwrap();
+    assert!(messages.is_empty());
+    assert_eq!(summary.unavailable_chats, ["Deals"]);
+    assert_eq!(summary.completed_chats, 0);
+}
+
 fn chat(id: &str, username: Option<&str>) -> Chat {
     Chat {
         id: id.into(),

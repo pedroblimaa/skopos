@@ -23,6 +23,14 @@ async fn live_api_reports_a_stopped_sender_without_attempting_network_io() {
         Err(InvocationError::Dropped)
     ));
     assert!(matches!(api.names().await, Err(InvocationError::Dropped)));
+    assert_eq!(
+        api.save_message("Promotion", None).await,
+        Err(crate::app_message::AppMessage::NotificationUncertain)
+    );
+    assert_eq!(
+        api.save_message("Promotion", Some(vec![0xff, 0xd8])).await,
+        Err(crate::app_message::AppMessage::NotificationFailed)
+    );
     assert!(matches!(
         api.sign_out().await,
         Err(InvocationError::Dropped)

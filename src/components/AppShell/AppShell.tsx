@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { ChevronDown, LogOut, Send } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Send } from "lucide-react";
+import { NotificationSettings } from "../NotificationSettings/NotificationSettings";
 import { Titlebar } from "../Titlebar/Titlebar";
 import { telegram, type SessionStatus } from "../../telegram";
 import { SessionLoading } from "../SessionLoading/SessionLoading";
@@ -28,6 +29,27 @@ export function AppShell() {
   const [isProfileOpen, setIsProfileOpen] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<AppMessage | null>(null);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notificationError, setNotificationError] = useState<AppMessage | null>(null);
+
+  useEffect(() => {
+    let isActive = true;
+    const subscription = telegram.onNotificationStatus((delivery) => {
+      if (isActive) setNotificationError(delivery.failure);
+    });
+    void subscription.catch(() => {
+      if (isActive) setNotificationError({ code: "notificationFailed" });
+    });
+    return () => {
+      isActive = false;
+      void subscription.then(
+        (unsubscribe) => {
+          unsubscribe();
+        },
+        () => {},
+      );
+    };
+  }, []);
 
   useEffect(() => {
     let isActive = true;
@@ -159,6 +181,17 @@ export function AppShell() {
           </div>
           <hr className="app-profile-separator" />
           <button
+            className="app-notifications"
+            type="button"
+            onClick={() => {
+              document.getElementById("telegram-profile-menu")?.hidePopover();
+              setIsNotificationsOpen(true);
+            }}
+          >
+            <Bell size={16} aria-hidden="true" />
+            {t("notifications")}
+          </button>
+          <button
             className="app-sign-out"
             type="button"
             disabled={isSigningOut}
@@ -198,6 +231,27 @@ export function AppShell() {
         <p className="error app-session-error" role="alert">
           {message(error)}
         </p>
+      )}
+      {notificationError !== null && (
+        <p className="error app-session-error" role="alert">
+          {message(notificationError)}{" "}
+          <button
+            className="notification-error-action"
+            type="button"
+            onClick={() => {
+              setIsNotificationsOpen(true);
+            }}
+          >
+            {t("notifications")}
+          </button>
+        </p>
+      )}
+      {isNotificationsOpen && (
+        <NotificationSettings
+          onClose={() => {
+            setIsNotificationsOpen(false);
+          }}
+        />
       )}
       {status !== null && (
         <ChatsContext.Provider value={chatCache}>

@@ -13,7 +13,7 @@ afterEach(() => {
 });
 
 it("loads once, shares pending reads, and keeps changes without rereading storage", async () => {
-  const first = { id: 1, phrases: ["Laptop"], maxPriceCents: null };
+  const first = { id: 1, phrases: ["Laptop"], maxPriceCents: null, minPriceCents: null };
   api.listWatches.mockResolvedValue([first]);
   const { result } = renderHook(useWatchCache);
 
@@ -26,10 +26,15 @@ it("loads once, shares pending reads, and keeps changes without rereading storag
 
   act(() => {
     result.current.update({ ...first, phrases: ["Laptop OLED"] });
-    result.current.update({ id: 2, phrases: ["Controller"], maxPriceCents: 20100 });
+    result.current.update({
+      id: 2,
+      phrases: ["Controller"],
+      maxPriceCents: 20100,
+      minPriceCents: null,
+    });
   });
   expect(await result.current.load()).toEqual([
-    { id: 2, phrases: ["Controller"], maxPriceCents: 20100 },
+    { id: 2, phrases: ["Controller"], maxPriceCents: 20100, minPriceCents: null },
     { ...first, phrases: ["Laptop OLED"] },
   ]);
 
@@ -57,7 +62,7 @@ it("retries a failed initial read and caches an empty list", async () => {
 
 it("reloads an initial snapshot when a product is saved while it is pending", async () => {
   let finish!: (value: Watch[]) => void;
-  const created = { id: 1, phrases: ["Controller"], maxPriceCents: null };
+  const created = { id: 1, phrases: ["Controller"], maxPriceCents: null, minPriceCents: null };
   api.listWatches
     .mockReturnValueOnce(
       new Promise<Watch[]>((resolve) => {
@@ -99,7 +104,7 @@ it("ignores late reads and mutations after unmount", async () => {
   unmount();
   finish([]);
   await pending;
-  cache.update({ id: 1, phrases: ["Laptop"], maxPriceCents: null });
+  cache.update({ id: 1, phrases: ["Laptop"], maxPriceCents: null, minPriceCents: null });
   cache.remove(1);
   expect(cache.watches).toEqual([]);
 });

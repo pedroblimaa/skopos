@@ -6,6 +6,7 @@ pub(crate) mod e2e;
 mod error;
 pub mod phone;
 pub mod qr;
+pub(crate) mod saved;
 pub mod search;
 pub mod session;
 mod state;

@@ -1,5 +1,6 @@
 mod app_message;
 mod links;
+mod notification;
 mod promotion;
 mod telegram;
 mod watch;
@@ -30,6 +31,10 @@ macro_rules! app_handler {
             telegram::search::commands::load_search_results,
             telegram::search::commands::clear_search_results,
             links::open_promotion_link,
+            notification::commands::notification_settings,
+            notification::commands::save_notification_settings,
+            notification::commands::notification_status,
+            notification::commands::retry_uncertain_notifications,
             $($extra),*
         ]
     };
@@ -37,7 +42,9 @@ macro_rules! app_handler {
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
-    let builder = tauri::Builder::default().plugin(tauri_plugin_opener::init());
+    let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_notification::init());
     #[cfg(feature = "e2e")]
     let builder = builder
         .plugin(tauri_plugin_wdio::init())
@@ -47,6 +54,7 @@ pub fn run() {
         .manage(telegram::AuthState::default())
         .manage(telegram::search::SearchState::default())
         .manage(telegram::chats::ChatPhotos::default());
+    let builder = builder.manage(notification::NotificationState::default());
     #[cfg(not(feature = "e2e"))]
     let builder = builder.invoke_handler(app_handler!());
     #[cfg(feature = "e2e")]
@@ -61,6 +69,8 @@ pub fn run() {
             e2e::commands::fail_qr,
             e2e::commands::require_qr_password,
             e2e::commands::flush_coverage,
+            notification::fixture::configure_notifications_fixture,
+            notification::fixture::inspect_notifications_fixture,
         ]);
 
     builder
