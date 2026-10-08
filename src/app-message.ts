@@ -1,4 +1,7 @@
 export const staticMessageCodes = [
+  "monitoringStorage",
+  "startupFailed",
+  "trayFailed",
   "notificationStorage",
   "notificationFailed",
   "notificationUncertain",
@@ -77,6 +80,7 @@ export function isAppMessage(value: unknown): value is AppMessage {
   if (typeof value !== "object" || value === null || !("code" in value)) return false;
 
   if (staticMessageCodes.some((code) => code === value.code)) return true;
+
   if (!("params" in value) || typeof value.params !== "object" || value.params === null) {
     return false;
   }

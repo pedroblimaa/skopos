@@ -4,12 +4,28 @@ use grammers_client::{client::PasswordToken, tl, Client, InvocationError, SignIn
 #[derive(Clone)]
 pub(in crate::telegram) struct TelegramApi {
     pub(in crate::telegram) client: Client,
+    pub(in crate::telegram) session: std::sync::Arc<crate::telegram::client::SessionCache>,
+    pub(in crate::telegram) app: Option<tauri::AppHandle>,
     #[cfg(any(test, feature = "e2e"))]
     pub(in crate::telegram) fixture: Option<std::sync::Arc<crate::telegram::e2e::FixtureState>>,
 }
 
 impl TelegramApi {
     pub(in crate::telegram) async fn save_message(
+        &self,
+        caption: &str,
+        photo: Option<Vec<u8>>,
+    ) -> Result<(), crate::app_message::AppMessage> {
+        let generation = self.session.snapshot().generation;
+        let result = self.send_message(caption, photo).await;
+
+        if result == Err(crate::app_message::AppMessage::RestartLogin) {
+            self.reject_session(generation).await;
+        }
+        result
+    }
+
+    async fn send_message(
         &self,
         caption: &str,
         photo: Option<Vec<u8>>,
@@ -24,6 +40,7 @@ impl TelegramApi {
         let mut message = grammers_client::message::InputMessage::new()
             .html(caption)
             .link_preview(false);
+
         if let Some(bytes) = photo {
             let mut stream = bytes.as_slice();
             let upload = self
@@ -80,11 +97,14 @@ impl TelegramApi {
             let Some(chunk) = chunk else {
                 return Ok(bytes);
             };
+
             if bytes.len() + chunk.len() > 256 * 1024 {
                 return Err(InvocationError::Dropped);
             }
+
             let complete = chunk.len() < 64 * 1024;
             bytes.extend(chunk);
+
             if complete {
                 return Ok(bytes);
             }
@@ -95,12 +115,16 @@ impl TelegramApi {
         &self,
         request: &R,
     ) -> Result<R::Return, InvocationError> {
+        let generation = self.session.snapshot().generation;
         #[cfg(any(test, feature = "e2e"))]
-        if let Some(fixture) = &self.fixture {
-            return fixture.invoke(request);
-        }
-
-        self.client.invoke(request).await
+        let result = match &self.fixture {
+            Some(fixture) => fixture.invoke(request),
+            None => self.client.invoke(request).await,
+        };
+        #[cfg(not(any(test, feature = "e2e")))]
+        let result = self.client.invoke(request).await;
+        self.observe(generation, &result).await;
+        result
     }
 
     pub(in crate::telegram) async fn invoke_in_dc<R: tl::RemoteCall>(
@@ -108,12 +132,16 @@ impl TelegramApi {
         dc: i32,
         request: &R,
     ) -> Result<R::Return, InvocationError> {
+        let generation = self.session.snapshot().generation;
         #[cfg(any(test, feature = "e2e"))]
-        if let Some(fixture) = &self.fixture {
-            return fixture.invoke(request);
-        }
-
-        self.client.invoke_in_dc(dc, request).await
+        let result = match &self.fixture {
+            Some(fixture) => fixture.invoke(request),
+            None => self.client.invoke_in_dc(dc, request).await,
+        };
+        #[cfg(not(any(test, feature = "e2e")))]
+        let result = self.client.invoke_in_dc(dc, request).await;
+        self.observe(generation, &result).await;
+        result
     }
 
     pub(in crate::telegram) async fn is_authorized(&self) -> Result<bool, InvocationError> {
@@ -133,7 +161,10 @@ impl TelegramApi {
             return Ok((Some("Pedro".into()), None));
         }
 
-        let user = self.client.get_me().await?;
+        let generation = self.session.snapshot().generation;
+        let result = self.client.get_me().await;
+        self.observe(generation, &result).await;
+        let user = result?;
 
         Ok((
             user.first_name().map(str::to_owned),

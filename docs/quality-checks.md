@@ -30,7 +30,7 @@ Read when implementing code changes, fixing bugs, changing tests or fixtures, or
 For a small feature taking about ten minutes to implement, target 10–20 minutes after acceptance: 4–6 minutes for tests, 3–5 for focused verification, and the remainder for local checks and corrections. This is a planning budget, not permission to skip required tests or declare failures resolved.
 
 - At five minutes investigating one unexplained failure, stop speculative changes and collect decisive evidence. If it occurs only in the full runner, reproduce that environment without rebuilding unrelated stages.
-- At 15 minutes, report any blocker and the specific remaining work. At 20 minutes, end the bounded local testing attempt with passed/failed/pending checks and a concrete follow-up; do not silently continue a retry loop or label the feature fully verified. Continue beyond that budget only when the user requests it.
+- Report blockers and the specific remaining work. Continue verification until the requested work is complete or a concrete blocker requires user input; elapsed time alone is not a reason to stop.
 - Record stage durations from the command output when evaluating this workflow. Distinguish time writing tests, executing checks, and debugging. CI duration is separate from local handoff time.
 
 ## Independent verification stages
