@@ -1,16 +1,20 @@
 use super::repository::{CreateWatch, Watch, WatchRepository};
 use crate::app_message::AppMessage;
 use tauri::AppHandle;
-#[cfg(not(feature = "e2e"))]
 use tauri::Manager;
 
 #[tauri::command]
 pub async fn create_watch(app: AppHandle, input: CreateWatch) -> Result<Watch, AppMessage> {
     let repository = repository(&app)?;
-    repository
+    let watch = repository
         .create(input)
         .await
-        .map_err(|error| error.message())
+        .map_err(|error| error.message())?;
+    app.state::<crate::telegram::monitoring::MonitoringState>()
+        .wake
+        .notify_one();
+
+    Ok(watch)
 }
 
 #[tauri::command]
@@ -25,10 +29,15 @@ pub async fn update_watch(
     id: i64,
     input: CreateWatch,
 ) -> Result<Watch, AppMessage> {
-    repository(&app)?
+    let watch = repository(&app)?
         .update(id, input)
         .await
-        .map_err(|error| error.message())
+        .map_err(|error| error.message())?;
+    app.state::<crate::telegram::monitoring::MonitoringState>()
+        .wake
+        .notify_one();
+
+    Ok(watch)
 }
 
 #[tauri::command]
@@ -36,7 +45,12 @@ pub async fn delete_watch(app: AppHandle, id: i64) -> Result<(), AppMessage> {
     repository(&app)?
         .delete(id)
         .await
-        .map_err(|error| error.message())
+        .map_err(|error| error.message())?;
+    app.state::<crate::telegram::monitoring::MonitoringState>()
+        .wake
+        .notify_one();
+
+    Ok(())
 }
 
 fn repository(app: &AppHandle) -> Result<WatchRepository, AppMessage> {
@@ -53,5 +67,6 @@ fn repository(app: &AppHandle) -> Result<WatchRepository, AppMessage> {
     let _ = app;
 
     std::fs::create_dir_all(&directory).map_err(|_| AppMessage::WatchStorageOpen)?;
+
     Ok(WatchRepository::new(directory.join("watches.sqlite")))
 }

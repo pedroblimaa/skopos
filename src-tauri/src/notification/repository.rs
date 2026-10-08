@@ -2,10 +2,22 @@ use super::{DeliveryStatus, Settings};
 use crate::{app_message::AppMessage, promotion::SourceMessage};
 use libsql::{params, Builder};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::path::PathBuf;
+
+#[derive(Clone, Deserialize, Serialize, PartialEq, Eq)]
+pub(super) struct Signature {
+    pub watch_id: i64,
+    pub price: Option<i64>,
+    pub link: Option<String>,
+}
 
 #[derive(Clone, Deserialize, Serialize)]
 pub(super) struct Item {
+    #[serde(default)]
+    pub telegram_signatures: Vec<Signature>,
+    #[serde(default)]
+    pub desktop_signatures: Vec<Signature>,
     pub message: SourceMessage,
     pub price: Option<i64>,
     pub title: String,
@@ -21,6 +33,10 @@ pub(super) struct Separator {
 
 #[derive(Default, Deserialize, Serialize)]
 pub(super) struct Record {
+    #[serde(default)]
+    pub last_telegram: HashMap<i64, Signature>,
+    #[serde(default)]
+    pub last_desktop: HashMap<i64, Signature>,
     pub settings: Settings,
     pub items: Vec<Item>,
     pub failure: Option<AppMessage>,
@@ -102,6 +118,7 @@ impl Repository {
 pub(super) fn decode(data: &str) -> Result<Record, AppMessage> {
     let mut value: serde_json::Value =
         serde_json::from_str(data).map_err(|_| AppMessage::NotificationStorage)?;
+
     if matches!(
         value["failure"]["code"].as_str(),
         Some("notificationToken" | "notificationStartBot")

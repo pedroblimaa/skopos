@@ -1,47 +1,158 @@
 .dialog-panel {
+  isolation: isolate;
   width: min(440px, calc(100% - 32px));
   padding: var(--space-6);
-  border: 1px solid var(--color-separator);
+  border: 1px solid var(--color-glass-border);
   border-radius: var(--radius-panel);
-  background: var(--color-surface);
+  background: var(--color-transparent);
   color: var(--color-text);
-  box-shadow: var(--shadow-floating);
+  box-shadow: var(--shadow-glass);
+  transition: height var(--motion-page) var(--ease-standard);
 }
+
+/* Keep glass filtering off the tooltip's ancestors so its own blur can sample dialog content. */
+.dialog-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--color-surface);
+  pointer-events: none;
+}
+
+.dialog-panel[data-resizing="true"] {
+  overflow: hidden;
+}
+
 .dialog-panel[open] {
-  animation: dialog-enter var(--motion-feedback) var(--ease-standard);
+  animation: dialog-enter var(--motion-page) var(--ease-standard);
 }
+
+.dialog-panel[data-closing="true"] {
+  animation: dialog-exit var(--motion-feedback) var(--ease-standard) forwards;
+}
+
 .dialog-panel::backdrop {
-  background: var(--color-shadow-floating);
+  background: var(--color-dialog-backdrop);
+  animation: dialog-backdrop-enter var(--motion-page) var(--ease-standard);
 }
-.dialog-panel h2 {
+
+.dialog-panel[data-closing="true"]::backdrop {
+  animation: dialog-backdrop-exit var(--motion-feedback) var(--ease-standard) forwards;
+}
+
+.dialog-content {
+  display: flow-root;
+}
+
+.dialog-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin-bottom: 12px;
+}
+
+.dialog-heading h2 {
   font-size: 18px;
-  margin: 0 0 12px;
+  margin: 0;
 }
+
 .dialog-panel p {
   font-size: 13px;
   line-height: 1.6;
 }
+
 .dialog-panel p:not(.error) {
   color: var(--color-secondary);
 }
+
 .dialog-actions {
   display: flex;
   justify-content: flex-end;
   gap: var(--space-2);
   margin-top: var(--space-6);
 }
+
+@supports (backdrop-filter: blur(1px)) {
+  .dialog-panel::before {
+    background: var(--color-dialog-glass);
+    backdrop-filter: blur(var(--blur-dialog));
+  }
+
+  .dialog-panel::backdrop {
+    backdrop-filter: blur(var(--blur-backdrop));
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
+  .dialog-panel {
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-floating);
+  }
+
+  .dialog-panel::before {
+    background: var(--color-surface);
+    backdrop-filter: none;
+  }
+
+  .dialog-panel::backdrop {
+    background: var(--color-shadow-floating);
+    backdrop-filter: none;
+  }
+}
+
 @keyframes dialog-enter {
   from {
     opacity: 0;
-    transform: translateY(4px);
+    transform: translateY(8px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
+@keyframes dialog-exit {
+  from {
+    opacity: 1;
+    transform: translateY(0);
+  }
+
+  to {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+@keyframes dialog-backdrop-enter {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes dialog-backdrop-exit {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .dialog-panel[open] {
+  .dialog-panel,
+  .dialog-panel[open],
+  .dialog-panel::backdrop,
+  .dialog-panel[data-closing="true"]::backdrop {
     animation: none;
+    transition: none;
   }
 }

@@ -24,6 +24,12 @@
   --color-danger-soft: rgba(255, 179, 166, 0.1);
   --color-toolbar: rgba(36, 34, 47, 0.94);
   --color-menu: rgba(48, 45, 61, 0.98);
+  --color-dialog-glass: rgba(36, 34, 47, 0.08);
+  --color-tooltip-glass: rgba(36, 34, 47, 0.16);
+  --color-menu-glass: rgba(36, 34, 47, 0.16);
+  --color-glass-border: rgba(244, 240, 233, 0.16);
+  --color-glass-highlight: rgba(244, 240, 233, 0.08);
+  --color-dialog-backdrop: rgba(9, 7, 17, 0.18);
   --color-transparent: transparent;
   --color-shadow: rgba(9, 7, 17, 0.18);
   --color-shadow-toolbar: rgba(9, 7, 17, 0.24);

@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Deserialize, PartialEq, Eq, Serialize)]
 #[serde(tag = "code", content = "params", rename_all = "camelCase")]
 pub enum AppMessage {
+    MonitoringStorage,
+    StartupFailed,
+    TrayFailed,
     NotificationStorage,
     NotificationFailed,
     NotificationUncertain,

@@ -11,6 +11,9 @@ import { SearchContext } from "../ConnectedPage/search-context";
 import { useProductSearch } from "../ConnectedPage/useProductSearch";
 
 const api = vi.hoisted(() => ({
+  monitoringStatus: vi.fn(),
+  onMonitoringStatus: vi.fn(),
+  onSearchUpdated: vi.fn(),
   createWatch: vi.fn(),
   updateWatch: vi.fn(),
   listWatches: vi.fn(),
@@ -21,6 +24,16 @@ vi.mock("../../telegram", () => ({
 
 beforeEach(() => {
   vi.resetAllMocks();
+  api.monitoringStatus.mockResolvedValue({
+    accountId: 77,
+    enabled: true,
+    isRunning: false,
+    lastAttempt: null,
+    nextDue: null,
+    failure: null,
+  });
+  api.onMonitoringStatus.mockResolvedValue(vi.fn());
+  api.onSearchUpdated.mockResolvedValue(vi.fn());
   api.createWatch.mockResolvedValue({
     id: 1,
     phrases: ["Laptop Vivobook S14"],
@@ -39,6 +52,7 @@ afterEach(cleanup);
 function ProductSession({ children }: { children: ReactNode }) {
   const watches = useWatchCache();
   const search = useProductSearch();
+
   return (
     <WatchContext.Provider value={watches}>
       <SearchContext.Provider value={search}>{children}</SearchContext.Provider>
@@ -84,6 +98,7 @@ describe("AddWatchPage", () => {
         resolve = res;
         reject = rej;
       });
+
       api.listWatches.mockResolvedValue([
         { id: 7, phrases: ["Laptop"], maxPriceCents: null, minPriceCents: null },
       ]);
@@ -124,11 +139,14 @@ describe("AddWatchPage", () => {
 
       expect(screen.getByLabelText("Product name")).toHaveValue("Second product");
       expect(screen.getByRole("button", { name: "Add product" })).toBeEnabled();
+
       if (succeeds && kind === "update") {
         fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
         fireEvent.click(screen.getByRole("link", { name: "Edit again" }));
+
         expect(await screen.findByLabelText("Product name")).toHaveValue("First product");
       }
+
       expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     },
   );
@@ -147,10 +165,14 @@ describe("AddWatchPage", () => {
     expect(api.createWatch).not.toHaveBeenCalled();
 
     const removedRow = screen.getByLabelText("Alternative name 1").closest(".watch-phrase-row");
+
     fireEvent.click(screen.getByRole("button", { name: "Remove alternative name 1" }));
+
     expect(removedRow).toHaveAttribute("inert");
     expect(screen.getByRole("button", { name: "Add alternative name" })).toHaveFocus();
+
     if (!removedRow) throw new Error("Alternative-name row is missing");
+
     fireEvent.animationEnd(removedRow);
 
     expect(screen.getByLabelText("Alternative name 1")).toHaveValue("Asus S14");
@@ -194,6 +216,7 @@ describe("AddWatchPage", () => {
     fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "" } });
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await screen.findByRole("heading", { name: "Products home" });
+
     expect(api.updateWatch).toHaveBeenCalledWith(7, {
       phrases: ["Laptop OLED", "Vivobook"],
       maxPriceCents: null,
@@ -203,6 +226,7 @@ describe("AddWatchPage", () => {
     expect(api.createWatch).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("link", { name: "Edit again" }));
+
     expect(await screen.findByLabelText("Product name")).toHaveValue("Laptop OLED");
     expect(api.listWatches).toHaveBeenCalledTimes(1);
   });
@@ -212,6 +236,7 @@ describe("AddWatchPage", () => {
       { id: 7, phrases: ["Laptop"], maxPriceCents: null, minPriceCents: null },
     ]);
     let reject!: (reason: unknown) => void;
+
     api.updateWatch.mockReturnValueOnce(
       new Promise((_resolve, rej) => {
         reject = rej;
@@ -219,6 +244,7 @@ describe("AddWatchPage", () => {
     );
     renderPage("/watches/7/edit");
     await screen.findByLabelText("Product name");
+
     expect(screen.getByLabelText(/Maximum price/)).toHaveValue("");
 
     fireEvent.change(screen.getByLabelText("Product name"), { target: { value: "Laptop OLED" } });
@@ -237,6 +263,7 @@ describe("AddWatchPage", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
     await screen.findByRole("heading", { name: "Products home" });
+
     expect(api.updateWatch).toHaveBeenCalledTimes(2);
   });
 
@@ -250,6 +277,7 @@ describe("AddWatchPage", () => {
       expect(await screen.findByRole("alert")).toHaveTextContent(
         kind === "missing" ? "This product no longer exists." : "Could not save or load products",
       );
+
       expect(screen.queryByLabelText("Product name")).not.toBeInTheDocument();
 
       fireEvent.click(screen.getByRole("link", { name: "Products" }));
@@ -261,6 +289,7 @@ describe("AddWatchPage", () => {
   it.each([true, false])("ignores a late edit load %s result", async (succeeds) => {
     let resolve!: (value: Watch[]) => void;
     let reject!: (reason: unknown) => void;
+
     api.listWatches.mockReturnValue(
       new Promise<Watch[]>((res, rej) => {
         resolve = res;
@@ -272,6 +301,7 @@ describe("AddWatchPage", () => {
     await act(async () => {
       if (succeeds) resolve([]);
       else reject(new Error("Late failure"));
+
       await Promise.resolve();
     });
 
@@ -289,6 +319,7 @@ describe("AddWatchPage", () => {
     fireEvent.change(screen.getByLabelText("Product name"), {
       target: { value: "Laptop Vivobook S14" },
     });
+
     fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "0" } });
 
     expect(screen.getByText(/Enter a valid price/)).toBeInTheDocument();
@@ -306,7 +337,6 @@ describe("AddWatchPage", () => {
     });
     fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "3.500,00" } });
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
-
     await waitFor(() => {
       expect(api.createWatch).toHaveBeenCalledWith({
         phrases: ["Laptop Vivobook S14", "Asus Vivobook 14"],
@@ -342,6 +372,7 @@ describe("AddWatchPage", () => {
     await waitFor(() =>
       expect(screen.getByRole("alert")).toHaveTextContent("Could not save or load products"),
     );
+
     expect(screen.getByLabelText("Product name")).toHaveValue("RTX 5070");
 
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
@@ -363,23 +394,31 @@ it("follows the maximum until a custom minimum is entered and clears back to aut
   fireEvent.change(screen.getByLabelText("Product name"), { target: { value: "Dishwasher" } });
   fireEvent.click(screen.getByText("Price range"));
   const minimum = screen.getByLabelText("Minimum price");
+
   expect(minimum).toHaveValue("0,00");
 
   fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "5000,03" } });
+
   expect(minimum).toHaveValue("1000,00");
 
   fireEvent.change(minimum, { target: { value: "1200" } });
   fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "6000" } });
+
   expect(minimum).toHaveValue("1200");
 
   fireEvent.change(minimum, { target: { value: "" } });
-  expect(minimum).toHaveValue("");
-  fireEvent.blur(minimum);
-  expect(minimum).toHaveValue("1200,00");
-  fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "7000" } });
-  expect(minimum).toHaveValue("1400,00");
-  fireEvent.click(screen.getByRole("button", { name: "Add product" }));
 
+  expect(minimum).toHaveValue("");
+
+  fireEvent.blur(minimum);
+
+  expect(minimum).toHaveValue("1200,00");
+
+  fireEvent.change(screen.getByLabelText(/Maximum price/), { target: { value: "7000" } });
+
+  expect(minimum).toHaveValue("1400,00");
+
+  fireEvent.click(screen.getByRole("button", { name: "Add product" }));
   await waitFor(() => {
     expect(api.createWatch).toHaveBeenCalledWith({
       phrases: ["Dishwasher"],
@@ -395,11 +434,11 @@ it("restores a custom minimum when editing and persists zero to disable it", asy
   ]);
   renderPage("/watches/7/edit");
   await screen.findByLabelText("Minimum price");
+
   expect(screen.getByLabelText("Minimum price")).toHaveValue("1200,00");
 
   fireEvent.change(screen.getByLabelText("Minimum price"), { target: { value: "0" } });
   fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
-
   await waitFor(() => {
     expect(api.updateWatch).toHaveBeenCalledWith(7, {
       phrases: ["Dishwasher"],
@@ -419,6 +458,7 @@ it.each(["-1", "abc", "5000,01"])(
     fireEvent.click(screen.getByRole("button", { name: "Add product" }));
 
     expect(api.createWatch).not.toHaveBeenCalled();
+
     expect(
       screen.getByText("Enter a price of zero or more, no higher than the maximum."),
     ).toBeVisible();
