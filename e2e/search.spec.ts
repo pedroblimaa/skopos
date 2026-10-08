@@ -66,6 +66,60 @@ describe("manual promotion search", () => {
     );
   });
 
+  it("preserves searched results when notification storage fails and resumes after recovery", async () => {
+    await command("configure_notifications_fixture", { account: 77, fixture: {}, reset: true });
+    await browser.execute(async () => {
+      const api = (
+        window as Window & {
+          __TAURI__: {
+            event: {
+              listen: (
+                name: string,
+                handler: (event: { payload: { failure?: { code: string } } }) => void,
+              ) => Promise<() => void>;
+            };
+          };
+        }
+      ).__TAURI__;
+      const fixture = window as Window & {
+        notificationStorageFailure?: string;
+        stopNotificationListener?: () => void;
+      };
+      fixture.stopNotificationListener = await api.event.listen("notifications:status", (event) => {
+        const payload = event.payload as { failure?: { code: string } };
+
+        if (payload.failure) fixture.notificationStorageFailure = payload.failure.code;
+      });
+    });
+    await command("block_storage_fixture", { blocked: true, database: "notifications.sqlite" });
+    let matches: number;
+
+    try {
+      const found = await command<SearchResults>("search_products");
+      matches = found.matches.length;
+
+      assert.ok(matches > 0);
+      assert.equal((await command<SearchResults>("load_search_results")).matches.length, matches);
+      await browser.waitUntil(async () =>
+        browser.execute(
+          () =>
+            (window as Window & { notificationStorageFailure?: string })
+              .notificationStorageFailure === "notificationStorage",
+        ),
+      );
+    } finally {
+      await command("block_storage_fixture", { blocked: false, database: "notifications.sqlite" });
+      await browser.execute(() => {
+        (window as Window & { stopNotificationListener?: () => void }).stopNotificationListener?.();
+      });
+    }
+
+    assert.equal((await command<SearchResults>("search_products")).matches.length, matches);
+    await browser.waitUntil(
+      async () => (await command<{ failure: unknown }>("notification_status")).failure === null,
+    );
+  });
+
   it("rejects search without products or chats and rejects an invalid cleanup cutoff", async () => {
     assert.deepEqual(await commandError("clear_search_results", { before: -1 }), {
       code: "invalidSearchCutoff",

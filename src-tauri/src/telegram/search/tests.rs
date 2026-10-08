@@ -22,11 +22,14 @@ async fn skips_selected_chats_that_disappeared_before_the_search() {
         since: 100,
         until: 200,
         saved_messages: HashSet::new(),
+        cached_photos: Default::default(),
+        checkpoints: Default::default(),
     };
 
-    let (messages, summary) = workflow::search(&run, vec![chat("channel:999", None)], &[])
+    let (messages, summary, _) = workflow::search(&run, vec![chat("channel:999", None)], &[])
         .await
         .unwrap();
+
     assert!(messages.is_empty());
     assert_eq!(summary.unavailable_chats, ["Deals"]);
     assert_eq!(summary.completed_chats, 0);
@@ -56,6 +59,8 @@ async fn history_enforces_snapshot_bounds_and_original_links() {
         since: 100,
         until: 200,
         saved_messages: HashSet::new(),
+        cached_photos: Default::default(),
+        checkpoints: Default::default(),
     };
     let peer: tl::enums::Peer = tl::types::PeerChannel { channel_id: 2 }.into();
     fixture
@@ -72,7 +77,7 @@ async fn history_enforces_snapshot_bounds_and_original_links() {
         ])
         .to_bytes()));
 
-    let messages = adapter::history(
+    let (messages, _) = adapter::history(
         &run,
         tl::types::InputPeerChannel {
             channel_id: 2,
@@ -84,6 +89,7 @@ async fn history_enforces_snapshot_bounds_and_original_links() {
     )
     .await
     .unwrap();
+
     assert_eq!(
         messages
             .iter()
@@ -97,6 +103,7 @@ async fn history_enforces_snapshot_bounds_and_original_links() {
     );
 
     state.cancellation.fetch_add(1, Ordering::SeqCst);
+
     assert!(matches!(
         run.ensure_current().await,
         Err(SearchError::Cancelled)
@@ -117,6 +124,8 @@ async fn pagination_handles_empty_pages_and_rejects_repeated_offsets() {
         since: 100,
         until: 200,
         saved_messages: HashSet::new(),
+        cached_photos: Default::default(),
+        checkpoints: Default::default(),
     };
     let peer: tl::enums::Peer = tl::types::PeerChat { chat_id: 1 }.into();
     let page = history::page(vec![history::message(peer, 10, 150, "Controller")]).to_bytes();
@@ -127,7 +136,7 @@ async fn pagination_handles_empty_pages_and_rejects_repeated_offsets() {
         .replies
         .extend([Ok(page.clone()), Ok(history::page(vec![]).to_bytes())]);
 
-    let messages = adapter::history(
+    let (messages, _) = adapter::history(
         &run,
         tl::types::InputPeerChat { chat_id: 1 }.into(),
         &chat("group:1", Some("deals")),
@@ -135,6 +144,7 @@ async fn pagination_handles_empty_pages_and_rejects_repeated_offsets() {
     )
     .await
     .unwrap();
+
     assert_eq!(
         messages[0].message_link.as_deref(),
         Some("https://t.me/deals/10")
@@ -146,6 +156,7 @@ async fn pagination_handles_empty_pages_and_rejects_repeated_offsets() {
         .unwrap()
         .replies
         .extend([Ok(page.clone()), Ok(page)]);
+
     assert!(matches!(
         adapter::history(
             &run,
@@ -173,6 +184,7 @@ fn maps_rate_limits_authorization_and_unavailable_sources() {
         error(401, "AUTH_KEY_UNREGISTERED", None).message(),
         AppMessage::RestartLogin
     );
+
     assert_eq!(
         error(420, "FLOOD_WAIT", Some(30)).message(),
         AppMessage::ChatRateLimitSeconds { seconds: 30 }
@@ -199,9 +211,11 @@ async fn logout_cancels_search_before_waiting_for_its_commit_lock() {
             .await
             .is_err()
     );
+
     assert_eq!(state.cancellation.load(Ordering::SeqCst), 1);
 
     drop(operation);
+
     let _guard = cancel.await;
 }
 
@@ -219,6 +233,8 @@ async fn search_reports_dialog_failure_without_claiming_chats_completed() {
         since: 100,
         until: 200,
         saved_messages: HashSet::new(),
+        cached_photos: Default::default(),
+        checkpoints: Default::default(),
     };
     fixture
         .0
@@ -227,7 +243,7 @@ async fn search_reports_dialog_failure_without_claiming_chats_completed() {
         .replies
         .push_back(Err(InvocationError::Dropped));
 
-    let (messages, summary) = workflow::search(&run, vec![chat("group:1", None)], &[])
+    let (messages, summary, _) = workflow::search(&run, vec![chat("group:1", None)], &[])
         .await
         .unwrap();
 
@@ -251,6 +267,8 @@ async fn search_skips_missing_and_private_chats_but_stops_on_rate_limits() {
         since: 100,
         until: 200,
         saved_messages: HashSet::new(),
+        cached_photos: Default::default(),
+        checkpoints: Default::default(),
     };
     let error = |code, name: &str, value| {
         InvocationError::Rpc(RpcError {
@@ -260,6 +278,7 @@ async fn search_skips_missing_and_private_chats_but_stops_on_rate_limits() {
             caused_by: None,
         })
     };
+
     fixture.0.lock().unwrap().replies.extend([
         Ok(chat_fixtures::page(false, false).to_bytes()),
         Ok(chat_fixtures::page(true, false).to_bytes()),
@@ -271,7 +290,7 @@ async fn search_skips_missing_and_private_chats_but_stops_on_rate_limits() {
     let mut private = chat("channel:2", None);
     private.title = "Private channel".into();
 
-    let (messages, summary) =
+    let (messages, summary, _) =
         workflow::search(&run, vec![missing, private, chat("chat:1", None)], &[])
             .await
             .unwrap();
@@ -300,11 +319,14 @@ async fn history_accepts_paginated_variants_and_skips_non_product_messages() {
         since: 100,
         until: 200,
         saved_messages: HashSet::new(),
+        cached_photos: Default::default(),
+        checkpoints: Default::default(),
     };
     let peer: tl::enums::Peer = tl::types::PeerChat { chat_id: 1 }.into();
     let tl::enums::Message::Service(mut service) = chat_fixtures::message(peer.clone()) else {
         panic!("expected service fixture");
     };
+
     service.id = 9;
     service.date = 150;
     let messages = vec![
@@ -335,7 +357,7 @@ async fn history_accepts_paginated_variants_and_skips_non_product_messages() {
         .replies
         .extend([Ok(slice.to_bytes()), Ok(history::page(vec![]).to_bytes())]);
 
-    let messages = adapter::history(
+    let (messages, _) = adapter::history(
         &run,
         tl::types::InputPeerChat { chat_id: 1 }.into(),
         &chat("group:1", None),
@@ -366,4 +388,91 @@ async fn history_accepts_paginated_variants_and_skips_non_product_messages() {
         .await,
         Err(SearchError::Incomplete)
     ));
+}
+
+#[tokio::test]
+async fn automatic_history_keeps_the_last_successful_cursor_and_excludes_future_messages() {
+    let (context, fixture) = test_context().await;
+    let auth = AuthState::default();
+    let state = SearchState::default();
+    let mut run = workflow::SearchRun {
+        api: &context.client,
+        auth: &auth,
+        state: &state,
+        generation: 0,
+        cancellation: 0,
+        since: 100,
+        until: 200,
+        saved_messages: HashSet::new(),
+        cached_photos: Default::default(),
+        checkpoints: Default::default(),
+    };
+
+    run.checkpoints.insert(
+        "channel:2".into(),
+        crate::telegram::monitoring::Checkpoint {
+            message_id: 8,
+            checked_at: 150,
+        },
+    );
+    let peer: tl::enums::Peer = tl::types::PeerChannel { channel_id: 2 }.into();
+    fixture
+        .0
+        .lock()
+        .unwrap()
+        .replies
+        .push_back(Ok(history::page(vec![
+            history::message(peer.clone(), 12, 201, "future"),
+            history::message(peer.clone(), 11, 200, "new"),
+            history::message(peer.clone(), 10, 149, "older than checkpoint"),
+            history::message(peer, 8, 150, "already checked"),
+        ])
+        .to_bytes()));
+
+    let (messages, checkpoint) = adapter::history(
+        &run,
+        tl::types::InputPeerChannel {
+            channel_id: 2,
+            access_hash: 22,
+        }
+        .into(),
+        &chat("channel:2", None),
+        &[],
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(
+        messages
+            .iter()
+            .map(|message| message.message_id)
+            .collect::<Vec<_>>(),
+        [11]
+    );
+
+    assert_eq!(checkpoint.message_id, 11);
+    assert_eq!(checkpoint.checked_at, 200);
+
+    fixture
+        .0
+        .lock()
+        .unwrap()
+        .replies
+        .push_back(Ok(history::page(vec![]).to_bytes()));
+
+    let (_, empty) = adapter::history(
+        &run,
+        tl::types::InputPeerChannel {
+            channel_id: 2,
+            access_hash: 22,
+        }
+        .into(),
+        &chat("channel:2", None),
+        &[],
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(empty.message_id, 8);
+    assert_eq!(empty.checked_at, 200);
 }

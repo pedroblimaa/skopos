@@ -13,6 +13,7 @@ pub(super) fn caption(item: &Item, language: &str) -> String {
         |cents| format!("R$ {},{:02}", cents / 100, cents % 100),
     );
     let mut text = format!("{}\n<b>{}</b>", escape(&item.title), price);
+
     if let Some(url) = offer_link(&item.message.text).or_else(|| {
         item.message
             .message_link
@@ -33,7 +34,7 @@ pub(super) fn separator(day: &str) -> String {
     format!("<b>━━━━ 📅 {} ━━━━</b>", escape(day))
 }
 
-fn offer_link(text: &str) -> Option<String> {
+pub(super) fn offer_link(text: &str) -> Option<String> {
     text.split_whitespace()
         .map(|part| {
             part.trim_matches(|character| {

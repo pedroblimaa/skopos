@@ -11,11 +11,22 @@ import type {
 import type { CreateWatch, Watch } from "./watch.model";
 import type { SearchResults } from "./promotion.model";
 import type { NotificationSettings, NotificationStatus } from "./notification.model";
+import type { MonitoringStatus, StartupSettings } from "./monitoring.model";
 import { isAppMessage, type AppMessage } from "./app-message";
 
 export type { CodeRequest, LoginResult, QrToken, SessionStatus } from "./telegram.model";
 
 export const telegram = {
+  monitoringStatus: () => command<MonitoringStatus>("monitoring_status"),
+  saveMonitoringSettings: (enabled: boolean) =>
+    command<MonitoringStatus>("save_monitoring_settings", { enabled }),
+  startupSettings: () => command<StartupSettings>("startup_settings"),
+  saveStartupSettings: (enabled: boolean) =>
+    command<StartupSettings>("save_startup_settings", { enabled }),
+  onMonitoringStatus: (callback: (status: MonitoringStatus) => void) =>
+    onEvent<MonitoringStatus>("monitoring:status", callback),
+  onSearchUpdated: (callback: (accountId: number) => void) =>
+    onEvent<number>("search:updated", callback),
   notificationSettings: () => command<NotificationSettings>("notification_settings"),
   saveNotificationSettings: (settings: NotificationSettings) =>
     command<NotificationSettings>("save_notification_settings", { settings }),
@@ -73,6 +84,7 @@ export function isCodeSubmissionError(error: unknown): error is CodeSubmissionEr
 function command<T>(name: string, args?: Record<string, unknown>): Promise<T> {
   if (import.meta.env.VITE_E2E) {
     const api = testApi();
+
     if (!api) return Promise.reject(new Error("Tauri test API is unavailable"));
 
     return api.core.invoke<T>(name, args);

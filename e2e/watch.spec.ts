@@ -70,6 +70,8 @@ describe("product desktop flows", () => {
     await $("strong=Dishwasher").click();
     await $("h1=Edit product").waitForDisplayed();
     await $(".watch-price-range > summary").click();
+    await command("focus_window");
+    await browser.waitUntil(async () => browser.execute(() => document.hasFocus()));
     await $("#min-price").clearValue();
     await $("#max-price").click();
     await browser.waitUntil(async () => (await $("#min-price").getValue()) === "1200,00");
