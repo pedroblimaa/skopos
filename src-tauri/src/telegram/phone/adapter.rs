@@ -1,7 +1,7 @@
 use super::protocol::{code_delivery, send_code, CodeSender};
 use super::CodeRequest;
 use crate::telegram::{
-    client::{status_for, ClientContext, SessionStatus},
+    client::{ClientContext, SessionStatus},
     error::{AuthError, AuthResult},
 };
 use grammers_client::{client::PasswordToken, tl, InvocationError, SignInError};
@@ -77,7 +77,7 @@ impl PhoneSignInApi for ClientContext {
     }
 
     async fn status(&self) -> AuthResult<SessionStatus> {
-        status_for(&self.client).await
+        self.refresh_status().await
     }
 }
 
@@ -97,6 +97,7 @@ impl PhoneRequestApi for ClientContext {
                     hash: sent.phone_code_hash,
                 })
             }
+
             tl::enums::auth::SentCode::Success(_) => Ok(PhoneRequestOutcome::Authorized),
             tl::enums::auth::SentCode::PaymentRequired(_) => {
                 Ok(PhoneRequestOutcome::PaymentRequired)
@@ -105,7 +106,7 @@ impl PhoneRequestApi for ClientContext {
     }
 
     async fn status(&self) -> AuthResult<SessionStatus> {
-        status_for(&self.client).await
+        self.refresh_status().await
     }
 }
 

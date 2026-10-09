@@ -17,14 +17,42 @@ pub(crate) fn focus_window(app: AppHandle) -> Result<(), String> {
 }
 
 #[tauri::command]
+pub(crate) async fn reject_session_fixture(
+    app: AppHandle,
+    auth: State<'_, AuthState>,
+) -> Result<(), crate::app_message::AppMessage> {
+    let context = auth.client(&app).await.map_err(|error| error.message())?;
+    let generation = context.client.session.snapshot().generation;
+    let rejected: Result<(), grammers_client::InvocationError> = Err(
+        grammers_client::InvocationError::Rpc(grammers_client::sender::RpcError {
+            code: 401,
+            name: "SESSION_EXPIRED".into(),
+            value: None,
+            caused_by: None,
+        }),
+    );
+
+    context.client.observe(generation, &rejected).await;
+
+    Ok(())
+}
+
+#[tauri::command]
 pub(crate) async fn configure(
     state: State<'_, Arc<FixtureState>>,
     auth: State<'_, AuthState>,
+    monitoring: State<'_, crate::telegram::monitoring::MonitoringState>,
     scenario: Scenario,
 ) -> Result<(), String> {
+    monitoring
+        .is_suspended
+        .store(!scenario.authorized, std::sync::atomic::Ordering::SeqCst);
+    *monitoring.clock.lock().unwrap() = None;
     auth.login.lock().await.begin(LoginStep::Idle);
     auth.qr_update.notify_waiters();
+
     if let Some(context) = auth.context.get() {
+        context.client.session.reset(None);
         *context.account_id.lock().await = None;
     }
 

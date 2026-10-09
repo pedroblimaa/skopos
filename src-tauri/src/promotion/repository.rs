@@ -41,19 +41,40 @@ impl ResultRepository {
         ))
     }
 
-    pub(crate) async fn merge(
+    pub(crate) async fn merge_monitoring(
         &self,
         account: i64,
         messages: Vec<SourceMessage>,
         summary: SearchSummary,
+        monitoring_data: &str,
     ) -> Result<(), StorageError> {
+        let messages = serde_json::to_string(&self.merged(account, messages).await?)
+            .map_err(|_| StorageError)?;
+        let summary = serde_json::to_string(&summary).map_err(|_| StorageError)?;
+        let connection = self.connect().await?;
+        connection.execute("CREATE TABLE IF NOT EXISTS monitoring (account_id INTEGER PRIMARY KEY, data TEXT NOT NULL)", ()).await.map_err(|_| StorageError)?;
+        let transaction = connection.transaction().await.map_err(|_| StorageError)?;
+        transaction.execute("INSERT INTO search_results (account_id, messages, summary) VALUES (?1, ?2, ?3) ON CONFLICT(account_id) DO UPDATE SET messages = excluded.messages, summary = excluded.summary", params![account, messages, summary]).await.map_err(|_| StorageError)?;
+        transaction.execute("INSERT INTO monitoring (account_id, data) VALUES (?1, ?2) ON CONFLICT(account_id) DO UPDATE SET data = excluded.data", params![account, monitoring_data]).await.map_err(|_| StorageError)?;
+        transaction.commit().await.map_err(|_| StorageError)?;
+
+        Ok(())
+    }
+
+    async fn merged(
+        &self,
+        account: i64,
+        messages: Vec<SourceMessage>,
+    ) -> Result<Vec<SourceMessage>, StorageError> {
         let (saved, _) = self.load(account).await?;
         let mut merged: BTreeMap<_, _> = saved
             .into_iter()
             .map(|message| ((message.chat_id.clone(), message.message_id), message))
             .collect();
+
         for mut message in messages {
             let key = (message.chat_id.clone(), message.message_id);
+
             if message.image.is_none() {
                 message.image = merged.get(&key).and_then(|saved| saved.image.clone());
             }
@@ -61,8 +82,7 @@ impl ResultRepository {
             merged.insert(key, message);
         }
 
-        self.save(account, merged.into_values().collect(), Some(summary))
-            .await
+        Ok(merged.into_values().collect())
     }
 
     pub(crate) async fn clear(

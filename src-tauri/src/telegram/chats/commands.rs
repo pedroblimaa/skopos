@@ -5,7 +5,6 @@ use super::{
     Chat, ChatError,
 };
 use crate::{app_message::AppMessage, telegram::AuthState};
-#[cfg(not(feature = "e2e"))]
 use tauri::Manager;
 use tauri::{AppHandle, State};
 
@@ -16,7 +15,8 @@ pub async fn list_chats(
     photos: State<'_, ChatPhotos>,
 ) -> Result<Vec<Chat>, AppMessage> {
     let context = state.client(&app).await.map_err(|error| error.message())?;
-    let account = adapter::account_id(&context.client)
+    let account = context
+        .local_account_id()
         .await
         .map_err(|error| error.message())?;
 
@@ -37,7 +37,8 @@ pub async fn get_chat_photo(
     id: String,
 ) -> Result<Option<String>, AppMessage> {
     let context = state.client(&app).await.map_err(|error| error.message())?;
-    let account = adapter::account_id(&context.client)
+    let account = context
+        .local_account_id()
         .await
         .map_err(|error| error.message())?;
     let location = {
@@ -64,7 +65,8 @@ pub async fn get_selected_chats(
     state: State<'_, AuthState>,
 ) -> Result<Vec<Chat>, AppMessage> {
     let context = state.client(&app).await.map_err(|error| error.message())?;
-    let account = adapter::account_id(&context.client)
+    let account = context
+        .local_account_id()
         .await
         .map_err(|error| error.message())?;
 
@@ -81,14 +83,20 @@ pub async fn save_selected_chats(
     chats: Vec<Chat>,
 ) -> Result<(), AppMessage> {
     let context = state.client(&app).await.map_err(|error| error.message())?;
-    let account = adapter::account_id(&context.client)
+    let account = context
+        .local_account_id()
         .await
         .map_err(|error| error.message())?;
 
     repository(&app)?
         .save(account, chats)
         .await
-        .map_err(|error| error.message())
+        .map_err(|error| error.message())?;
+    app.state::<crate::telegram::monitoring::MonitoringState>()
+        .wake
+        .notify_one();
+
+    Ok(())
 }
 
 fn repository(app: &AppHandle) -> Result<ChatRepository, AppMessage> {

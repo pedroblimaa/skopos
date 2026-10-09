@@ -11,6 +11,7 @@ pub(crate) async fn send(
     image: Option<&str>,
 ) -> Result<(), AppMessage> {
     let auth = app.state::<AuthState>();
+
     if auth.account_id(app).await? != account {
         return Err(AppMessage::RestartLogin);
     }
@@ -56,6 +57,10 @@ pub(super) fn upload_error(error: std::io::Error) -> AppMessage {
         .get_ref()
         .and_then(|error| error.downcast_ref::<InvocationError>())
     {
+        if error.code == 401 {
+            return AppMessage::RestartLogin;
+        }
+
         if error.name == "FLOOD_WAIT" {
             return AppMessage::NotificationRateLimit {
                 seconds: error.value.map_or(60, u64::from),
@@ -129,12 +134,14 @@ mod tests {
             )))),
             AppMessage::AuthStorage
         );
+
         for name in ["AUTH_KEY_UNREGISTERED", "SESSION_EXPIRED"] {
             assert_eq!(
                 delivery_error(error(401, name, None)),
                 AppMessage::RestartLogin
             );
         }
+
         for name in ["PHOTO_INVALID_DIMENSIONS", "IMAGE_PROCESS_FAILED"] {
             assert_eq!(
                 delivery_error(error(400, name, None)),

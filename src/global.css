@@ -18,6 +18,11 @@
   --shadow-panel: 0 2px 8px var(--color-shadow);
   --shadow-toolbar: 0 2px 10px var(--color-shadow-toolbar);
   --shadow-floating: 0 8px 28px var(--color-shadow-floating);
+  --shadow-glass: inset 0 1px 0 var(--color-glass-highlight), var(--shadow-floating);
+  --blur-dialog: 8px;
+  --blur-tooltip: 8px;
+  --blur-menu: 8px;
+  --blur-backdrop: 3px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;

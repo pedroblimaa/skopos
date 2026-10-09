@@ -14,6 +14,7 @@
       {
         "title": "Skopos",
         "decorations": false,
+        "visible": false,
         "width": 1040,
         "height": 760
       }

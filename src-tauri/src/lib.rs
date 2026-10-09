@@ -1,4 +1,5 @@
 mod app_message;
+mod desktop;
 mod links;
 mod notification;
 mod promotion;
@@ -35,6 +36,10 @@ macro_rules! app_handler {
             notification::commands::save_notification_settings,
             notification::commands::notification_status,
             notification::commands::retry_uncertain_notifications,
+            telegram::monitoring::commands::monitoring_status,
+            telegram::monitoring::commands::save_monitoring_settings,
+            desktop::startup_settings,
+            desktop::save_startup_settings,
             $($extra),*
         ]
     };
@@ -43,8 +48,19 @@ macro_rules! app_handler {
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     let builder = tauri::Builder::default()
+        .plugin(tauri_plugin_single_instance::init(|app, args, _| {
+            if !args.iter().any(|arg| arg == "--background") {
+                desktop::show(app);
+            }
+        }))
         .plugin(tauri_plugin_opener::init())
         .plugin(tauri_plugin_notification::init());
+    #[cfg(not(feature = "e2e"))]
+    let builder = builder.plugin(
+        tauri_plugin_autostart::Builder::new()
+            .args(["--background"])
+            .build(),
+    );
     #[cfg(feature = "e2e")]
     let builder = builder
         .plugin(tauri_plugin_wdio::init())
@@ -54,7 +70,12 @@ pub fn run() {
         .manage(telegram::AuthState::default())
         .manage(telegram::search::SearchState::default())
         .manage(telegram::chats::ChatPhotos::default());
-    let builder = builder.manage(notification::NotificationState::default());
+    let builder = builder
+        .manage(notification::NotificationState::default())
+        .manage(telegram::monitoring::MonitoringState::default())
+        .manage(desktop::DesktopState::default())
+        .setup(desktop::setup)
+        .on_window_event(desktop::window_event);
     #[cfg(not(feature = "e2e"))]
     let builder = builder.invoke_handler(app_handler!());
     #[cfg(feature = "e2e")]
@@ -69,8 +90,13 @@ pub fn run() {
             e2e::commands::fail_qr,
             e2e::commands::require_qr_password,
             e2e::commands::flush_coverage,
+            desktop::fixture::desktop_fixture,
+            e2e::commands::reject_session_fixture,
             notification::fixture::configure_notifications_fixture,
             notification::fixture::inspect_notifications_fixture,
+            telegram::monitoring::fixture::configure_monitoring_fixture,
+            telegram::monitoring::fixture::tick_monitoring_fixture,
+            telegram::monitoring::fixture::wake_monitoring_fixture,
         ]);
 
     builder

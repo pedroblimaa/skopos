@@ -11,6 +11,8 @@ pub(crate) struct FixtureState(pub(in crate::telegram) Mutex<Fixture>);
 #[derive(Default, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub(crate) struct Scenario {
+    pub(in crate::telegram) history_now: Option<i64>,
+    pub(in crate::telegram) history_first_id: Option<i32>,
     pub(in crate::telegram) authorized: bool,
     pub(in crate::telegram) password_required: bool,
     pub(in crate::telegram) code_expired: bool,
@@ -36,6 +38,7 @@ pub(crate) struct Scenario {
 pub(in crate::telegram) struct Fixture {
     pub(in crate::telegram) scenario: Scenario,
     pub(in crate::telegram) replies: std::collections::VecDeque<Result<Vec<u8>, InvocationError>>,
+    pub(in crate::telegram) authorization_checks: u32,
     pub(super) qr_requests: u32,
     pub(super) refreshed: bool,
     pub(super) qr_reply: Option<QrReply>,
@@ -67,6 +70,7 @@ impl FixtureState {
             if error == "DROPPED" {
                 return Err(InvocationError::Dropped);
             }
+
             if has_photo || !matches!(error.as_str(), "PHOTO_INVALID" | "IMAGE_PROCESS_FAILED") {
                 return Err(rpc(error));
             }
@@ -93,7 +97,9 @@ impl FixtureState {
     }
 
     pub(in crate::telegram) fn is_authorized(&self) -> Result<bool, InvocationError> {
-        let fixture = self.0.lock().unwrap();
+        let mut fixture = self.0.lock().unwrap();
+        fixture.authorization_checks += 1;
+
         if fixture.scenario.status_error.is_some()
             || (fixture.scenario.status_error_after_login && fixture.scenario.authorized)
         {
@@ -117,16 +123,19 @@ impl FixtureState {
         }
 
         self.0.lock().unwrap().scenario.authorized = true;
+
         Ok(())
     }
 
     pub(in crate::telegram) fn sign_out(&self) -> Result<(), InvocationError> {
         let mut fixture = self.0.lock().unwrap();
+
         if fixture.scenario.sign_out_error.is_some() {
             return Err(InvocationError::Dropped);
         }
 
         fixture.scenario.authorized = false;
+
         Ok(())
     }
 }
@@ -146,6 +155,7 @@ impl Fixture {
             tl::functions::auth::SignIn::CONSTRUCTOR_ID => self.sign_in(body),
             tl::functions::account::GetPassword::CONSTRUCTOR_ID => {
                 let response: tl::enums::account::Password = password().into();
+
                 Ok(response.to_bytes())
             }
             tl::functions::auth::ExportLoginToken::CONSTRUCTOR_ID
@@ -167,6 +177,7 @@ impl Fixture {
         }
 
         let mut user = super::chats::account(self.scenario.account_id.unwrap_or(1));
+
         if self.scenario.profile_photo {
             user.photo = Some(
                 tl::types::UserProfilePhoto {
@@ -201,11 +212,14 @@ impl Fixture {
         if self.scenario.search_error {
             return Err(InvocationError::Dropped);
         }
+
         let request = tl::functions::messages::GetHistory::from_bytes(body)
             .map_err(|_| InvocationError::Dropped)?;
+
         if request.offset_id != 0 {
             return Ok(super::history::page(vec![]));
         }
+
         let peer: tl::enums::Peer = match request.peer {
             tl::enums::InputPeer::Chat(peer) => tl::types::PeerChat {
                 chat_id: peer.chat_id,
@@ -217,18 +231,21 @@ impl Fixture {
             .into(),
             _ => return Err(InvocationError::Dropped),
         };
-        let now = SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_secs() as i32;
+        let now = self.scenario.history_now.unwrap_or_else(|| {
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .unwrap()
+                .as_secs() as i64
+        }) as i32;
 
         if let Some(texts) = &self.scenario.promotion_messages {
             let messages = texts
                 .iter()
                 .enumerate()
                 .map(|(index, text)| {
-                    super::history::message(peer.clone(), 100 - index as i32, now - 60, text)
+                    super::history::message(peer.clone(), self.scenario.history_first_id.unwrap_or(100) - index as i32, now - 60, text)
                 })
+                .filter(|entry| matches!(entry, tl::enums::Message::Message(message) if message.id > request.min_id))
                 .collect();
 
             return Ok(super::history::page(messages));
@@ -245,6 +262,7 @@ impl Fixture {
             super::history::message(peer.clone(), 8, now - 180, "Controle 10x R$ 50"),
             super::history::message(peer, 7, now - 90_000, "Controle R$ 100"),
         ];
+
         if self.scenario.promotion_photos {
             if let tl::enums::Message::Message(message) = &mut messages[0] {
                 message.media = Some(super::history::photo_media(false, vec![]));
@@ -278,6 +296,7 @@ impl Fixture {
 
         if self.scenario.immediate_authorized {
             self.scenario.authorized = true;
+
             return Ok(tl::types::auth::SentCodeSuccess {
                 authorization: authorization(),
             }
@@ -304,18 +323,22 @@ impl Fixture {
         if request.phone_code.as_deref() != Some("12345") {
             return Err(rpc("PHONE_CODE_INVALID"));
         }
+
         if self.scenario.password_required {
             return Err(rpc("SESSION_PASSWORD_NEEDED"));
         }
 
         self.scenario.authorized = true;
+
         Ok(authorization().to_bytes())
     }
 
     fn login_token(&mut self) -> Result<tl::enums::auth::LoginToken, InvocationError> {
         self.qr_requests += 1;
+
         if self.scenario.qr_failures > 0 {
             self.scenario.qr_failures -= 1;
+
             return Err(InvocationError::Dropped);
         }
 
@@ -324,6 +347,7 @@ impl Fixture {
             Some(QrReply::PasswordRequired) => Err(rpc("SESSION_PASSWORD_NEEDED")),
             Some(QrReply::Authorized) => {
                 self.scenario.authorized = true;
+
                 Ok(tl::types::auth::LoginTokenSuccess {
                     authorization: authorization(),
                 }

@@ -1,6 +1,9 @@
 import { useEffect, useState } from "react";
 import { Navigate, NavLink, Outlet, useLocation, useNavigate } from "react-router-dom";
-import { Bell, ChevronDown, LogOut, Send } from "lucide-react";
+import { Bell, ChevronDown, LogOut, Send, Clock } from "lucide-react";
+import { MonitoringSettings } from "../MonitoringSettings/MonitoringSettings";
+import { useNotificationPreferences } from "../NotificationSettings/useNotificationPreferences";
+import { useMonitoringPreferences } from "../MonitoringSettings/useMonitoringPreferences";
 import { NotificationSettings } from "../NotificationSettings/NotificationSettings";
 import { Titlebar } from "../Titlebar/Titlebar";
 import { telegram, type SessionStatus } from "../../telegram";
@@ -30,15 +33,22 @@ export function AppShell() {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState<AppMessage | null>(null);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
-  const [notificationError, setNotificationError] = useState<AppMessage | null>(null);
+  const [isMonitoringOpen, setIsMonitoringOpen] = useState(false);
+  const notificationCache = useNotificationPreferences(status?.authorized === true);
+  const monitoringCache = useMonitoringPreferences(status?.authorized === true);
+  const notificationError = notificationCache.status?.failure;
 
   useEffect(() => {
     let isActive = true;
-    const subscription = telegram.onNotificationStatus((delivery) => {
-      if (isActive) setNotificationError(delivery.failure);
+    const subscription = telegram.onAuthenticated((next) => {
+      if (!isActive) return;
+
+      setStatus(next);
+
+      if (!next.authorized) void navigate("/login", { replace: true });
     });
-    void subscription.catch(() => {
-      if (isActive) setNotificationError({ code: "notificationFailed" });
+    void subscription.catch((reason: unknown) => {
+      if (isActive) setError(appError(reason));
     });
     return () => {
       isActive = false;
@@ -49,7 +59,7 @@ export function AppShell() {
         () => {},
       );
     };
-  }, []);
+  }, [navigate]);
 
   useEffect(() => {
     let isActive = true;
@@ -57,9 +67,11 @@ export function AppShell() {
     async function loadProfile() {
       try {
         const profile = await telegram.status();
+
         if (!isActive) return;
 
         setStatus(profile);
+
         if (!profile.authorized) return;
 
         await loadPhoto();
@@ -71,6 +83,7 @@ export function AppShell() {
     async function loadPhoto() {
       try {
         const photo = await telegram.getProfilePhoto();
+
         if (isActive) setProfilePhoto(photo);
       } catch {
         // The avatar is optional; keep the Telegram icon if the download fails.
@@ -185,11 +198,26 @@ export function AppShell() {
             type="button"
             onClick={() => {
               document.getElementById("telegram-profile-menu")?.hidePopover();
+
+              if (notificationCache.error) notificationCache.reload();
               setIsNotificationsOpen(true);
             }}
           >
             <Bell size={16} aria-hidden="true" />
             {t("notifications")}
+          </button>
+          <button
+            className="app-notifications"
+            type="button"
+            onClick={() => {
+              document.getElementById("telegram-profile-menu")?.hidePopover();
+
+              if (monitoringCache.error) monitoringCache.reload();
+              setIsMonitoringOpen(true);
+            }}
+          >
+            <Clock size={16} aria-hidden="true" />
+            {t("monitoring")}
           </button>
           <button
             className="app-sign-out"
@@ -232,13 +260,14 @@ export function AppShell() {
           {message(error)}
         </p>
       )}
-      {notificationError !== null && (
+      {notificationError && (
         <p className="error app-session-error" role="alert">
           {message(notificationError)}{" "}
           <button
             className="notification-error-action"
             type="button"
             onClick={() => {
+              if (notificationCache.error) notificationCache.reload();
               setIsNotificationsOpen(true);
             }}
           >
@@ -246,8 +275,17 @@ export function AppShell() {
           </button>
         </p>
       )}
+      {isMonitoringOpen && (
+        <MonitoringSettings
+          cache={monitoringCache}
+          onClose={() => {
+            setIsMonitoringOpen(false);
+          }}
+        />
+      )}
       {isNotificationsOpen && (
         <NotificationSettings
+          cache={notificationCache}
           onClose={() => {
             setIsNotificationsOpen(false);
           }}
