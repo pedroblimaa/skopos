@@ -1,4 +1,7 @@
-use crate::telegram::{api::TelegramApi, error::AuthResult};
+use crate::telegram::{
+    api::TelegramApi,
+    error::{AuthError, AuthResult},
+};
 use serde::Serialize;
 
 #[derive(Clone, Debug, Serialize)]
@@ -29,6 +32,27 @@ impl SessionStatus {
 }
 
 pub(in crate::telegram) async fn status_for(client: &TelegramApi) -> AuthResult<SessionStatus> {
+    if let Some(status) = client.session.snapshot().status {
+        return Ok(status);
+    }
+
+    let _validation = client.session.validation.lock().await;
+    let snapshot = client.session.snapshot();
+
+    if let Some(status) = snapshot.status {
+        return Ok(status);
+    }
+
+    let status = load_status(client).await?;
+
+    if !client.session.store(snapshot.generation, status.clone()) {
+        return Err(AuthError::Cancelled);
+    }
+
+    Ok(status)
+}
+
+async fn load_status(client: &TelegramApi) -> AuthResult<SessionStatus> {
     if !client.is_authorized().await? {
         return Ok(SessionStatus::signed_out());
     }

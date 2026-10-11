@@ -45,6 +45,7 @@ fn rpc_message(error: &grammers_client::sender::RpcError) -> AppMessage {
             },
             None => AppMessage::FloodWait,
         },
+        "AUTH_KEY_UNREGISTERED" | "SESSION_REVOKED" | "SESSION_EXPIRED" => AppMessage::RestartLogin,
         "PHONE_NUMBER_INVALID" => AppMessage::InvalidPhone,
         "PHONE_CODE_EXPIRED" => AppMessage::CodeExpired,
         "PHONE_CODE_INVALID" | "PHONE_CODE_EMPTY" => AppMessage::InvalidCode,

@@ -15,6 +15,7 @@ impl SessionApi for ClientContext {
 
     async fn sign_out(&self) -> AuthResult<()> {
         self.client.sign_out().await.map_err(AuthError::from)?;
+        self.client.session.reset(Some(SessionStatus::signed_out()));
         *self.account_id.lock().await = None;
 
         Ok(())
@@ -30,18 +31,26 @@ mod tests {
     async fn successful_sign_out_clears_identity_and_a_failed_sign_out_preserves_it() {
         let (context, fixture) = test_context().await;
         fixture.0.lock().unwrap().scenario.authorized = true;
+
         assert_eq!(context.local_account_id().await.unwrap(), 1);
+
         fixture.0.lock().unwrap().scenario.sign_out_error = Some("network".into());
 
         assert!(context.sign_out().await.is_err());
         assert_eq!(*context.account_id.lock().await, Some(1));
+        assert!(context.status().await.unwrap().authorized());
 
         fixture.0.lock().unwrap().scenario.sign_out_error = None;
         context.sign_out().await.unwrap();
+
         assert_eq!(*context.account_id.lock().await, None);
+        assert!(!context.status().await.unwrap().authorized());
+        assert!(context.local_account_id().await.is_err());
 
         fixture.0.lock().unwrap().scenario.authorized = true;
         fixture.0.lock().unwrap().scenario.account_id = Some(99);
+
+        assert!(context.refresh_status().await.unwrap().authorized());
         assert_eq!(context.local_account_id().await.unwrap(), 99);
     }
 }

@@ -1,11 +1,27 @@
 import type { AppMessage } from "../app-message";
 
 const en = {
+  monitoring: "Monitoring",
+  monitoringInfo: "About automatic monitoring",
+  monitoringDetails:
+    "Monitoring runs up to 2 searches per day, at the start of the day and at 18:00.",
+  automaticMonitoring: "Automatic monitoring",
+  startWithWindows: "Start with Windows",
+  monitoringLastAttempt: "Last automatic check",
+  monitoringNextDue: "Next check",
+  monitoringNever: "Not yet",
+  monitoringPaused: "Paused",
+  monitoringRunning: "Checking new messages...",
+  loadingMonitoring: "Loading monitoring settings...",
+  monitoringStorage: "Could not access monitoring settings or checkpoints. Try again.",
+  startupFailed: "Could not update Windows startup. Try changing Start with Windows again.",
+  trayFailed: "Could not create the tray icon. Closing the window will quit Skopos.",
   notifications: "Notifications",
+  notificationsInfo: "About notifications",
   telegramNotifications: "Save to Telegram",
   desktopNotifications: "Desktop alerts",
   notificationsHelp:
-    "New promotions go to Saved Messages after each search, without setup. This saves messages; phone alerts are not guaranteed.",
+    "New promotions go to Saved Messages in Telegram, mobile notifications are not supported.",
   uncertainNotifications: "Delivery could not be confirmed for {count} promotions.",
   retryNotifications: "Retry uncertain messages",
   retryNotificationsWarning:
@@ -217,11 +233,28 @@ export type TranslationKey = keyof typeof en;
 export type Language = "pt-BR" | "en";
 
 const ptBR: Record<TranslationKey, string> = {
+  monitoring: "Monitoramento",
+  monitoringInfo: "Sobre o monitoramento automático",
+  monitoringDetails: "O monitoramento executa até 2 buscas por dia, no início do dia e às 18h.",
+  automaticMonitoring: "Monitoramento automático",
+  startWithWindows: "Iniciar com o Windows",
+  monitoringLastAttempt: "Última busca automática",
+  monitoringNextDue: "Próxima busca",
+  monitoringNever: "Ainda não",
+  monitoringPaused: "Pausado",
+  monitoringRunning: "Verificando novas mensagens...",
+  loadingMonitoring: "Carregando configurações de monitoramento...",
+  monitoringStorage:
+    "Não foi possível acessar as configurações ou os pontos de continuação. Tente novamente.",
+  startupFailed:
+    "Não foi possível atualizar a inicialização com o Windows. Tente alterar Iniciar com o Windows novamente.",
+  trayFailed: "Não foi possível criar o ícone na bandeja. Fechar a janela encerrará o Skopos.",
   notifications: "Notificações",
+  notificationsInfo: "Sobre as notificações",
   telegramNotifications: "Salvar no Telegram",
   desktopNotifications: "Alertas no computador",
   notificationsHelp:
-    "Novas promoções vão para Mensagens Salvas após cada busca, sem configuração. Isso salva mensagens; alertas no celular não são garantidos.",
+    "Novas promoções vão para Mensagens Salvas no Telegram, notificações no celular não são suportados",
   uncertainNotifications: "Não foi possível confirmar o envio de {count} promoções.",
   retryNotifications: "Reenviar mensagens incertas",
   retryNotificationsWarning:

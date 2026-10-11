@@ -1,5 +1,6 @@
 mod adapter;
 pub mod commands;
+pub(crate) mod execution;
 mod photos;
 #[cfg(test)]
 mod tests;
@@ -17,7 +18,7 @@ pub struct SearchState {
 }
 
 impl SearchState {
-    pub(in crate::telegram) async fn cancel_and_wait(&self) -> tokio::sync::MutexGuard<'_, ()> {
+    pub(crate) async fn cancel_and_wait(&self) -> tokio::sync::MutexGuard<'_, ()> {
         self.cancellation.fetch_add(1, Ordering::SeqCst);
         self.operation.lock().await
     }
@@ -36,6 +37,7 @@ impl SearchError {
             Self::Telegram(InvocationError::Rpc(error)) if error.code == 401 => {
                 AppMessage::RestartLogin
             }
+
             Self::Telegram(InvocationError::Rpc(error)) if error.name == "FLOOD_WAIT" => {
                 match error.value {
                     Some(seconds) => AppMessage::ChatRateLimitSeconds {

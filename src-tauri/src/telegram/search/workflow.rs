@@ -23,16 +23,20 @@ pub(super) struct SearchRun<'a> {
     pub since: i64,
     pub until: i64,
     pub saved_messages: HashSet<(String, i32)>,
+    pub cached_photos: HashMap<(String, i32), String>,
+    pub checkpoints: HashMap<String, crate::telegram::monitoring::Checkpoint>,
 }
 
 impl SearchRun<'_> {
     pub async fn ensure_current(&self) -> Result<(), SearchError> {
         let login = self.auth.login.lock().await;
+
         if login.generation != self.generation
             || self.state.cancellation.load(Ordering::SeqCst) != self.cancellation
         {
             return Err(SearchError::Cancelled);
         }
+
         Ok(())
     }
 }
@@ -41,7 +45,15 @@ pub(super) async fn search(
     run: &SearchRun<'_>,
     selected: Vec<Chat>,
     watches: &[Watch],
-) -> Result<(Vec<SourceMessage>, SearchSummary), SearchError> {
+) -> Result<
+    (
+        Vec<SourceMessage>,
+        SearchSummary,
+        HashMap<String, crate::telegram::monitoring::Checkpoint>,
+    ),
+    SearchError,
+> {
+    let mut checkpoints = HashMap::new();
     let mut summary = SearchSummary {
         started_at: run.until,
         since: run.since,
@@ -57,11 +69,14 @@ pub(super) async fn search(
         Ok(Ok(dialogs)) => dialogs,
         Ok(Err(error)) => {
             summary.failure = Some(error.message());
-            return Ok((Vec::new(), summary));
+
+            return Ok((Vec::new(), summary, checkpoints));
         }
+
         Err(_) => {
             summary.failure = Some(crate::app_message::AppMessage::SearchFailed);
-            return Ok((Vec::new(), summary));
+
+            return Ok((Vec::new(), summary, checkpoints));
         }
     };
     let current: HashMap<_, _> = dialogs
@@ -83,13 +98,16 @@ pub(super) async fn search(
         };
 
         match search_chat(run, peer.clone(), chat, watches).await {
-            Ok(messages) => {
+            Ok((messages, checkpoint)) => {
+                checkpoints.insert(chat.id.clone(), checkpoint);
                 found.extend(messages);
                 summary.completed_chats += 1;
             }
+
             Err(error) if error.is_unavailable() => {
                 summary.unavailable_chats.push(chat.title.clone())
             }
+
             Err(SearchError::Cancelled) => return Err(SearchError::Cancelled),
             Err(error) => {
                 summary.failure = Some(error.message());
@@ -97,8 +115,10 @@ pub(super) async fn search(
             }
         }
     }
+
     run.ensure_current().await?;
-    Ok((found, summary))
+
+    Ok((found, summary, checkpoints))
 }
 
 async fn search_chat(
@@ -106,21 +126,24 @@ async fn search_chat(
     peer: tl::enums::InputPeer,
     chat: &Chat,
     watches: &[Watch],
-) -> Result<Vec<SourceMessage>, SearchError> {
-    let messages = adapter::history(run, peer, chat, watches).await?;
+) -> Result<(Vec<SourceMessage>, crate::telegram::monitoring::Checkpoint), SearchError> {
+    let (messages, checkpoint) = adapter::history(run, peer, chat, watches).await?;
     let matches = match_messages(&messages, watches);
     let ids: std::collections::HashSet<_> = matches
         .iter()
         .map(|result| result.message.message_id)
         .collect();
 
-    Ok(messages
-        .into_iter()
-        .filter(|message| {
-            ids.contains(&message.message_id)
-                || run
-                    .saved_messages
-                    .contains(&(message.chat_id.clone(), message.message_id))
-        })
-        .collect())
+    Ok((
+        messages
+            .into_iter()
+            .filter(|message| {
+                ids.contains(&message.message_id)
+                    || run
+                        .saved_messages
+                        .contains(&(message.chat_id.clone(), message.message_id))
+            })
+            .collect(),
+        checkpoint,
+    ))
 }

@@ -8,23 +8,109 @@ use std::sync::Arc;
 use tauri::{AppHandle, Manager, State};
 
 #[tauri::command]
+pub(crate) async fn block_storage_fixture(
+    app: AppHandle,
+    blocked: bool,
+    database: Option<String>,
+) -> Result<(), String> {
+    let directory = std::env::temp_dir().join(format!("skopos-e2e-{}", std::process::id()));
+    let target = match database.as_deref() {
+        Some(
+            name @ ("watches.sqlite" | "chats.sqlite" | "results.sqlite" | "notifications.sqlite"),
+        ) => directory.join(name),
+        None => directory,
+        Some(_) => return Err("Unknown fixture database".into()),
+    };
+    let backup = target.with_extension("backup");
+    let monitoring = app.state::<crate::telegram::monitoring::MonitoringState>();
+    monitoring
+        .is_suspended
+        .store(true, std::sync::atomic::Ordering::SeqCst);
+    let search = app.state::<crate::telegram::search::SearchState>();
+    let _search = search.cancel_and_wait().await;
+    let _monitoring = monitoring.operation.lock().await;
+    let notifications = app.state::<crate::notification::NotificationState>();
+    let _notifications = notifications.cancel_and_wait().await;
+
+    if blocked {
+        std::fs::rename(&target, &backup).map_err(|error| error.to_string())?;
+        let result = if database.is_some() {
+            std::fs::create_dir(&target)
+        } else {
+            std::fs::write(&target, b"storage unavailable")
+        };
+
+        if let Err(error) = result {
+            std::fs::rename(&backup, &target).map_err(|error| error.to_string())?;
+            return Err(error.to_string());
+        }
+    } else {
+        if database.is_some() {
+            std::fs::remove_dir(&target).map_err(|error| error.to_string())?;
+        } else {
+            std::fs::remove_file(&target).map_err(|error| error.to_string())?;
+        }
+        std::fs::rename(&backup, &target).map_err(|error| error.to_string())?;
+    }
+
+    if !blocked || database.is_some() {
+        monitoring
+            .is_suspended
+            .store(false, std::sync::atomic::Ordering::SeqCst);
+    }
+
+    Ok(())
+}
+
+#[tauri::command]
 pub(crate) fn focus_window(app: AppHandle) -> Result<(), String> {
     let window = app
         .get_webview_window("main")
         .ok_or("Missing test window")?;
 
-    window.set_focus().map_err(|error| error.to_string())
+    window.set_focus().map_err(|error| error.to_string())?;
+    let webview: &tauri::Webview = window.as_ref();
+
+    webview.set_focus().map_err(|error| error.to_string())
+}
+
+#[tauri::command]
+pub(crate) async fn reject_session_fixture(
+    app: AppHandle,
+    auth: State<'_, AuthState>,
+) -> Result<(), crate::app_message::AppMessage> {
+    let context = auth.client(&app).await.map_err(|error| error.message())?;
+    let generation = context.client.session.snapshot().generation;
+    let rejected: Result<(), grammers_client::InvocationError> = Err(
+        grammers_client::InvocationError::Rpc(grammers_client::sender::RpcError {
+            code: 401,
+            name: "SESSION_EXPIRED".into(),
+            value: None,
+            caused_by: None,
+        }),
+    );
+
+    context.client.observe(generation, &rejected).await;
+
+    Ok(())
 }
 
 #[tauri::command]
 pub(crate) async fn configure(
     state: State<'_, Arc<FixtureState>>,
     auth: State<'_, AuthState>,
+    monitoring: State<'_, crate::telegram::monitoring::MonitoringState>,
     scenario: Scenario,
 ) -> Result<(), String> {
+    monitoring
+        .is_suspended
+        .store(!scenario.authorized, std::sync::atomic::Ordering::SeqCst);
+    *monitoring.clock.lock().unwrap() = None;
     auth.login.lock().await.begin(LoginStep::Idle);
     auth.qr_update.notify_waiters();
+
     if let Some(context) = auth.context.get() {
+        context.client.session.reset(None);
         *context.account_id.lock().await = None;
     }
 

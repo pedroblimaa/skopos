@@ -49,9 +49,13 @@ pub(crate) struct NotificationState {
 }
 
 impl NotificationState {
-    pub(crate) async fn cancel_and_wait(&self) -> tokio::sync::MutexGuard<'_, ()> {
+    pub(crate) fn cancel(&self) {
         self.generation.fetch_add(1, Ordering::SeqCst);
         self.wake.notify_waiters();
+    }
+
+    pub(crate) async fn cancel_and_wait(&self) -> tokio::sync::MutexGuard<'_, ()> {
+        self.cancel();
         let worker = self.worker.lock().await;
         drop(worker);
         self.operation.lock().await
@@ -59,3 +63,4 @@ impl NotificationState {
 }
 
 pub(crate) use delivery::enqueue;
+pub(crate) use delivery::start as resume;
