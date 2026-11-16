@@ -127,6 +127,18 @@ it("retains a newer status event when the initial read completes late and unsubs
   expect(unsubscribe).toHaveBeenCalledOnce();
 });
 
+it.each([
+  ["monitoringStatus", "Start with Windows"],
+  ["startupSettings", "Automatic monitoring"],
+] as const)("keeps %s failures from hiding the other switch", async (read, label) => {
+  api[read].mockRejectedValue({ code: "monitoringStorage" });
+
+  render(<PreferencesDialog onClose={vi.fn()} />);
+
+  expect(await screen.findByRole("alert")).toBeInTheDocument();
+  expect(await screen.findByRole("switch", { name: label })).toBeEnabled();
+});
+
 function PreferencesDialog({ onClose }: { onClose: () => void }) {
   const cache = useMonitoringPreferences(true);
 

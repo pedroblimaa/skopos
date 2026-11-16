@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog } from "../Dialog/Dialog";
 import { Button } from "../Button/Button";
 import { InfoTooltip } from "../InfoTooltip/InfoTooltip";
+import { Switch } from "../Switch/Switch";
 import { telegram } from "../../telegram";
 import { appError, type AppMessage } from "../../app-message";
 import type { useNotificationPreferences } from "./useNotificationPreferences";
@@ -76,30 +77,18 @@ export function NotificationSettings({ onClose, cache }: Props) {
         <>
           {settings && (
             <div className="notification-settings">
-              <label className="notification-switch">
-                <span>{t("telegramNotifications")}</span>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={settings.telegramEnabled}
-                  disabled={isBusy}
-                  onChange={(event) =>
-                    void perform(() => saveSwitch("telegramEnabled", event.target.checked))
-                  }
-                />
-              </label>
-              <label className="notification-switch">
-                <span>{t("desktopNotifications")}</span>
-                <input
-                  type="checkbox"
-                  role="switch"
-                  checked={settings.desktopEnabled}
-                  disabled={isBusy}
-                  onChange={(event) =>
-                    void perform(() => saveSwitch("desktopEnabled", event.target.checked))
-                  }
-                />
-              </label>
+              <Switch
+                label={t("telegramNotifications")}
+                checked={settings.telegramEnabled}
+                disabled={isBusy}
+                onChange={(checked) => void perform(() => saveSwitch("telegramEnabled", checked))}
+              />
+              <Switch
+                label={t("desktopNotifications")}
+                checked={settings.desktopEnabled}
+                disabled={isBusy}
+                onChange={(checked) => void perform(() => saveSwitch("desktopEnabled", checked))}
+              />
               {status && status.uncertain > 0 && (
                 <div>
                   <p>{t("uncertainNotifications", { count: status.uncertain })}</p>

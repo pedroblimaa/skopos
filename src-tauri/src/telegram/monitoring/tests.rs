@@ -92,6 +92,9 @@ async fn settings_wait_for_a_short_concurrent_results_write() {
     record.enabled = false;
     let database = libsql::Builder::new_local(path).build().await.unwrap();
     let writer = database.connect().unwrap();
+    writer
+        .busy_timeout(std::time::Duration::from_secs(1))
+        .unwrap();
     writer.execute("BEGIN IMMEDIATE", ()).await.unwrap();
     let release = std::thread::spawn(move || {
         std::thread::sleep(std::time::Duration::from_millis(100));

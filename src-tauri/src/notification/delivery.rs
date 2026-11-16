@@ -149,22 +149,21 @@ fn is_duplicate(record: &Record, signature: &Signature, channel: NotificationCha
         NotificationChannel::Telegram => &record.last_telegram,
         NotificationChannel::Desktop => &record.last_desktop,
     };
-    let reserved = record.items.iter().rev().find_map(|item| {
-        let signatures = match channel {
-            NotificationChannel::Telegram
-                if matches!(item.telegram.as_str(), "pending" | "uncertain") =>
-            {
-                &item.telegram_signatures
-            }
+    previous.get(&signature.watch_id) == Some(signature)
+        || record.items.iter().any(|item| {
+            let signatures = match channel {
+                NotificationChannel::Telegram
+                    if matches!(item.telegram.as_str(), "pending" | "uncertain") =>
+                {
+                    &item.telegram_signatures
+                }
 
-            NotificationChannel::Desktop if !item.desktop => &item.desktop_signatures,
-            _ => return None,
-        };
-        signatures
-            .iter()
-            .find(|candidate| candidate.watch_id == signature.watch_id)
-    });
-    reserved.or_else(|| previous.get(&signature.watch_id)) == Some(signature)
+                NotificationChannel::Desktop if !item.desktop => &item.desktop_signatures,
+                _ => return false,
+            };
+
+            signatures.contains(signature)
+        })
 }
 
 pub(crate) fn start(app: AppHandle, account: i64) {

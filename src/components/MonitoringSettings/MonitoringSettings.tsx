@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from "react";
 import { Dialog } from "../Dialog/Dialog";
 import { Button } from "../Button/Button";
 import { InfoTooltip } from "../InfoTooltip/InfoTooltip";
+import { Switch } from "../Switch/Switch";
 import { telegram } from "../../telegram";
 import { appError, type AppMessage } from "../../app-message";
 import type { useMonitoringPreferences } from "./useMonitoringPreferences";
 import { useLanguage } from "../../i18n/useLanguage";
-import "../NotificationSettings/NotificationSettings.css";
 import "./MonitoringSettings.css";
 
 interface Props {
@@ -83,47 +83,45 @@ export function MonitoringSettings({ onClose, cache }: Props) {
     >
       {(close) => (
         <>
-          {status && startup && (
+          {(status || startup) && (
             <div className="monitoring-settings">
-              <label className="notification-switch">
-                <span>{t("automaticMonitoring")}</span>
-                <input
-                  type="checkbox"
-                  role="switch"
+              {status && (
+                <Switch
+                  label={t("automaticMonitoring")}
                   checked={status.enabled}
                   disabled={isBusy}
-                  onChange={(event) => void save("monitoring", event.target.checked)}
+                  onChange={(checked) => void save("monitoring", checked)}
                 />
-              </label>
-              <label className="notification-switch">
-                <span>{t("startWithWindows")}</span>
-                <input
-                  type="checkbox"
-                  role="switch"
+              )}
+              {startup && (
+                <Switch
+                  label={t("startWithWindows")}
                   checked={startup.enabled}
                   disabled={isBusy}
-                  onChange={(event) => void save("startup", event.target.checked)}
+                  onChange={(checked) => void save("startup", checked)}
                 />
-              </label>
-              <dl className="monitoring-times">
-                <div>
-                  <dt>{t("monitoringLastAttempt")}</dt>
-                  <dd>{renderTimestamp(status.lastAttempt)}</dd>
-                </div>
-                <div>
-                  <dt>{t("monitoringNextDue")}</dt>
-                  <dd>
-                    {status.enabled ? renderTimestamp(status.nextDue) : t("monitoringPaused")}
-                  </dd>
-                </div>
-              </dl>
-              {status.isRunning && <p role="status">{t("monitoringRunning")}</p>}
-              {status.failure && (
+              )}
+              {status && (
+                <dl className="monitoring-times">
+                  <div>
+                    <dt>{t("monitoringLastAttempt")}</dt>
+                    <dd>{renderTimestamp(status.lastAttempt)}</dd>
+                  </div>
+                  <div>
+                    <dt>{t("monitoringNextDue")}</dt>
+                    <dd>
+                      {status.enabled ? renderTimestamp(status.nextDue) : t("monitoringPaused")}
+                    </dd>
+                  </div>
+                </dl>
+              )}
+              {status?.isRunning && <p role="status">{t("monitoringRunning")}</p>}
+              {status?.failure && (
                 <p className="error" role="alert">
                   {message(status.failure)}
                 </p>
               )}
-              {startup.failure && (
+              {startup?.failure && (
                 <p className="error" role="alert">
                   {message(startup.failure)}
                 </p>

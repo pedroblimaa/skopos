@@ -415,6 +415,29 @@ fn unknown_price_and_link_reservations_survive_restart_and_uncertain_sends() {
 }
 
 #[test]
+fn an_uncertain_offer_stays_reserved_after_a_different_offer_is_queued() {
+    let mut record = Record::default();
+    let first = result(1);
+    let mut different = first.clone();
+    different.message.message_id += 1;
+    different.price_cents = Some(20000);
+    let mut repost = first.clone();
+    repost.message.message_id += 2;
+
+    add_matches(&mut record, &[first]);
+    record_telegram_result(
+        &mut record,
+        &Delivery::Promotion(0),
+        &Err(AppMessage::NotificationUncertain),
+    );
+    add_matches(&mut record, &[different, repost]);
+
+    assert_eq!(record.items[1].telegram, "pending");
+    assert_eq!(record.items[2].telegram, "suppressed");
+    assert!(record.items[2].desktop);
+}
+
+#[test]
 fn repost_for_one_product_still_notifies_a_second_product() {
     let mut record = Record::default();
     let first = result(1);
