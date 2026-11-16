@@ -4,7 +4,7 @@ use crate::telegram::{
     error::{AuthError, AuthResult},
     state::AuthState,
 };
-use grammers_client::{sender::SenderPool, tl, Client};
+use grammers_client::{sender::SenderPool, Client};
 use grammers_session::{storages::SqliteSession, types::PeerId, Session};
 use std::sync::Arc;
 use tauri::{AppHandle, Manager};
@@ -18,8 +18,36 @@ pub(in crate::telegram) struct ClientContext {
 }
 
 impl ClientContext {
+    pub(in crate::telegram) async fn refresh_status(&self) -> AuthResult<super::SessionStatus> {
+        self.client.session.reset(None);
+        *self.account_id.lock().await = None;
+        super::status_for(&self.client).await
+    }
+
     pub(in crate::telegram) async fn local_account_id(&self) -> AuthResult<i64> {
+        if !super::status_for(&self.client).await?.authorized() {
+            return Err(AuthError::Message(
+                crate::app_message::AppMessage::RestartLogin,
+            ));
+        }
+
+        let snapshot = self.client.session.snapshot();
+
+        if !snapshot
+            .status
+            .as_ref()
+            .is_some_and(super::SessionStatus::authorized)
+        {
+            return Err(AuthError::Cancelled);
+        }
+
+        let generation = snapshot.generation;
         let mut account = self.account_id.lock().await;
+
+        if self.client.session.snapshot().generation != generation {
+            return Err(AuthError::Cancelled);
+        }
+
         if let Some(id) = *account {
             return Ok(id);
         }
@@ -35,27 +63,24 @@ impl ClientContext {
             None => fetch_account_id(&self.client).await?,
         };
 
+        if self.client.session.snapshot().generation != generation {
+            return Err(AuthError::Cancelled);
+        }
         *account = Some(id);
+
         Ok(id)
     }
 }
 
 async fn fetch_account_id(client: &TelegramApi) -> AuthResult<i64> {
-    let users = client
-        .invoke(&tl::functions::users::GetUsers {
-            id: vec![tl::enums::InputUser::UserSelf],
-        })
-        .await?;
+    use crate::telegram::chats::{adapter, ChatError};
 
-    users
-        .into_iter()
-        .find_map(|user| match user {
-            tl::enums::User::User(user) if user.is_self => Some(user.id),
-            _ => None,
-        })
-        .ok_or(AuthError::Message(
-            crate::app_message::AppMessage::RestartLogin,
-        ))
+    match adapter::account_id(client).await {
+        Ok(account) => Ok(account),
+        Err(ChatError::Auth(error)) => Err(error),
+        Err(ChatError::Telegram(error)) => Err(error.into()),
+        Err(error) => Err(AuthError::Message(error.message())),
+    }
 }
 
 impl AuthState {
@@ -64,19 +89,12 @@ impl AuthState {
         app: &AppHandle,
     ) -> Result<i64, crate::app_message::AppMessage> {
         let context = self.client(app).await.map_err(|error| error.message())?;
-        if !context
-            .client
-            .is_authorized()
-            .await
-            .map_err(|_| crate::app_message::AppMessage::AuthNetwork)?
-        {
-            return Err(crate::app_message::AppMessage::RestartLogin);
-        }
         context
             .local_account_id()
             .await
             .map_err(|error| error.message())
     }
+
     pub(in crate::telegram) async fn client(&self, app: &AppHandle) -> AuthResult<&ClientContext> {
         self.context
             .get_or_try_init(|| initialize_client(app))
@@ -91,6 +109,8 @@ async fn initialize_client(app: &AppHandle) -> AuthResult<ClientContext> {
     let pool = SenderPool::new(Arc::clone(&session), api_id);
     let client = TelegramApi {
         client: Client::new(pool.handle),
+        session: Arc::new(super::SessionCache::default()),
+        app: Some(app.clone()),
         #[cfg(feature = "e2e")]
         fixture: Some(Arc::clone(
             &app.state::<Arc<crate::telegram::e2e::FixtureState>>(),

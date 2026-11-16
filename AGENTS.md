@@ -4,7 +4,7 @@
 
 Skopos is a local desktop app for finding Telegram promotions that match a product name and optional maximum BRL price. Use Tauri, React, TypeScript, Vite, Rust, SQLite, and the `grammers` MTProto client. Communicate through Tauri commands and events; keep credentials, sessions, and data local.
 
-Implemented: QR/phone/password login, session restoration and sign-out, chat selection, product CRUD, manual search of the last 24 hours, saved results, promotion previews, optional photos, external web links, Telegram Saved Messages delivery, and desktop notification summaries. Automatic monitoring, tray/background operation, and startup integration remain planned; plans do not authorize implementation.
+Implemented: QR/phone/password login, session restoration and sign-out, chat selection, product CRUD, manual search of the last 24 hours, saved results, promotion previews, optional photos, external web links, Telegram Saved Messages delivery, desktop notification summaries, twice-daily automatic monitoring with per-chat checkpoints, tray/background operation, and Windows startup integration. Automatic searches run at the first eligible start each local day and at or after 18:00; daily slots persist across restarts. Manual search retains its 24-hour window.
 
 Keep work within the requested flow. Do not add hosted services or HTTP APIs without a concrete technical reason. Skopos accounts, email infrastructure, LLM matching, complex rules, scraping, and synchronization are outside the MVP. Add modules and abstractions only for needed behavior; avoid speculative fallbacks and unreleased-format compatibility.
 
@@ -20,6 +20,8 @@ Telegram adapter → generic source message → parser/matcher → product match
 - Saved-result reads use local storage and cached/persisted account identity; a missing identity may require one Telegram lookup. Missing optional media must not fail results or imply a broken login. Keep photo downloads bounded and preserve cached photos when a later download fails.
 - Render Telegram text as text. Open promotion links through the native HTTP/HTTPS validation boundary in `links.rs`; do not enable arbitrary protocols or render message HTML.
 - Serialize search and cleanup; preserve cancellation and generation checks so sign-out or superseded operations cannot publish stale results.
+- Monitoring settings, daily slots, and chat checkpoints are account-scoped. Reserve automatic slots before history requests; failed attempts count. Commit results, checkpoints, and notification candidates together. Result cleanup must not reset monitoring or notification history. Windows startup preferences are installation-wide.
+- Notification repost suppression compares the last delivered price and offer URL per account/product/channel; pending and uncertain deliveries reserve their signatures.
 - Notification settings and delivery history are account-scoped; both switches default on. Use the existing Telegram session and only send to the current account’s self peer. Save results before enqueueing delivery; keep notification history independent of result cleanup. Preserve uncertain sends across restarts and require explicit retry confirmation. Gate fake Telegram and desktop adapters out of production.
 
 ## Code organization

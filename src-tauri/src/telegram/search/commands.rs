@@ -1,21 +1,11 @@
-use super::{
-    workflow::{self, SearchRun},
-    SearchState,
-};
+use super::SearchState;
 use crate::{
     app_message::AppMessage,
     promotion::{match_messages, ResultRepository, SearchResults},
-    telegram::{
-        chats::{adapter, repository::ChatRepository},
-        AuthState,
-    },
+    telegram::AuthState,
     watch::WatchRepository,
 };
-use std::{
-    path::PathBuf,
-    sync::atomic::Ordering,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::path::PathBuf;
 #[cfg(not(feature = "e2e"))]
 use tauri::Manager;
 use tauri::{AppHandle, State};
@@ -23,105 +13,9 @@ use tauri::{AppHandle, State};
 #[tauri::command]
 pub async fn search_products(
     app: AppHandle,
-    auth: State<'_, AuthState>,
-    state: State<'_, SearchState>,
     notification_day: String,
 ) -> Result<SearchResults, AppMessage> {
-    let _operation = state
-        .operation
-        .try_lock()
-        .map_err(|_| AppMessage::SearchBusy)?;
-    let generation = auth.login.lock().await.generation;
-    let cancellation = state.cancellation.load(Ordering::SeqCst);
-    let until = now()?;
-    let directory = directory(&app)?;
-    let watches = WatchRepository::new(directory.join("watches.sqlite"))
-        .list()
-        .await
-        .map_err(|error| error.message())?;
-    if watches.is_empty() {
-        return Err(AppMessage::SearchNeedsProducts);
-    }
-
-    let context = auth.client(&app).await.map_err(|error| error.message())?;
-    let account = adapter::account_id(&context.client)
-        .await
-        .map_err(|error| error.message())?;
-    let selected = ChatRepository::new(directory.join("chats.sqlite"))
-        .get(account)
-        .await
-        .map_err(|error| error.message())?;
-    if selected.is_empty() {
-        return Err(AppMessage::SearchNeedsChats);
-    }
-
-    let repository = ResultRepository::new(directory.join("results.sqlite"));
-    let (saved, _) = repository
-        .load(account)
-        .await
-        .map_err(|_| AppMessage::SearchStorage)?;
-    let saved_messages = saved
-        .into_iter()
-        .map(|message| (message.chat_id, message.message_id))
-        .collect();
-
-    let run = SearchRun {
-        api: &context.client,
-        auth: &auth,
-        state: &state,
-        generation,
-        cancellation,
-        since: until - 86_400,
-        until,
-        saved_messages,
-    };
-    let (messages, summary) = workflow::search(&run, selected, &watches)
-        .await
-        .map_err(|error| error.message())?;
-    run.ensure_current()
-        .await
-        .map_err(|error| error.message())?;
-
-    let fetched: std::collections::HashSet<_> = messages
-        .iter()
-        .map(|message| (message.chat_id.clone(), message.message_id))
-        .collect();
-    repository
-        .merge(account, messages, summary)
-        .await
-        .map_err(|_| AppMessage::SearchStorage)?;
-
-    let (messages, summary) = repository
-        .load(account)
-        .await
-        .map_err(|_| AppMessage::SearchStorage)?;
-    let current_watches = WatchRepository::new(directory.join("watches.sqlite"))
-        .list()
-        .await
-        .map_err(|error| error.message())?;
-
-    let matches = match_messages(&messages, &current_watches);
-    let notifications: Vec<_> = matches
-        .iter()
-        .filter(|result| {
-            fetched.contains(&(result.message.chat_id.clone(), result.message.message_id))
-        })
-        .cloned()
-        .collect();
-    if let Err(error) =
-        crate::notification::enqueue(&app, account, &notifications, notification_day).await
-    {
-        use tauri::Emitter;
-        let _ = app.emit(
-            "notifications:status",
-            crate::notification::DeliveryStatus {
-                failure: Some(error),
-                ..Default::default()
-            },
-        );
-    }
-
-    Ok(SearchResults { matches, summary })
+    super::execution::manual(&app, notification_day).await
 }
 
 #[tauri::command]
@@ -168,7 +62,8 @@ pub async fn clear_search_results(
         .try_lock()
         .map_err(|_| AppMessage::SearchBusy)?;
     let context = auth.client(&app).await.map_err(|error| error.message())?;
-    let account = adapter::account_id(&context.client)
+    let account = context
+        .local_account_id()
         .await
         .map_err(|error| error.message())?;
 
@@ -191,12 +86,4 @@ fn directory(app: &AppHandle) -> Result<PathBuf, AppMessage> {
     std::fs::create_dir_all(&directory).map_err(|_| AppMessage::SearchStorage)?;
 
     Ok(directory)
-}
-
-fn now() -> Result<i64, AppMessage> {
-    SystemTime::now()
-        .duration_since(UNIX_EPOCH)
-        .ok()
-        .and_then(|duration| i64::try_from(duration.as_secs()).ok())
-        .ok_or(AppMessage::SearchFailed)
 }

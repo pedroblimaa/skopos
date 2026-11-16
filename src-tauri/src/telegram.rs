@@ -4,6 +4,7 @@ mod client;
 #[cfg(any(test, feature = "e2e"))]
 pub(crate) mod e2e;
 mod error;
+pub(crate) mod monitoring;
 pub mod phone;
 pub mod qr;
 pub(crate) mod saved;

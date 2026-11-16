@@ -1,6 +1,6 @@
 use super::protocol::{export_qr, QrOutcome, QrSender};
 use crate::telegram::{
-    client::{status_for, ClientContext, SessionStatus},
+    client::{ClientContext, SessionStatus},
     error::{AuthError, AuthResult},
 };
 use grammers_client::{client::PasswordToken, tl};
@@ -18,7 +18,7 @@ impl QrApi for ClientContext {
     }
 
     async fn status(&self) -> AuthResult<SessionStatus> {
-        status_for(&self.client).await
+        self.refresh_status().await
     }
 
     async fn password_token(&self) -> Result<PasswordToken, grammers_client::InvocationError> {

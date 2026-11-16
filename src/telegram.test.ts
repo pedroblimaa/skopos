@@ -18,6 +18,7 @@ describe("Telegram IPC adapter", () => {
       desktopEnabled: true,
       language: "en",
     };
+
     await telegram.notificationSettings();
     await telegram.saveNotificationSettings(settings);
     await telegram.notificationStatus();
@@ -34,6 +35,7 @@ describe("Telegram IPC adapter", () => {
     ]);
     const callback = vi.fn();
     const delivery = { pending: 1, uncertain: 0, failure: null };
+
     api.listen.mockImplementationOnce(
       (_name: string, receive: (event: { payload: typeof delivery }) => void) => {
         receive({ payload: delivery });
@@ -41,6 +43,7 @@ describe("Telegram IPC adapter", () => {
       },
     );
     await telegram.onNotificationStatus(callback);
+
     expect(callback).toHaveBeenCalledWith(delivery);
   });
   it("uses typed search commands and preserves cleanup cutoffs", async () => {
@@ -64,10 +67,12 @@ describe("Telegram IPC adapter", () => {
       username: "deals",
       available: true,
     };
+
     api.invoke.mockResolvedValue([chat]);
 
     expect(await telegram.listChats()).toEqual([chat]);
     expect(await telegram.getSelectedChats()).toEqual([chat]);
+
     await telegram.saveSelectedChats([chat]);
     await telegram.getChatPhoto(chat.id);
 
@@ -126,16 +131,19 @@ describe("Telegram IPC adapter", () => {
       },
     );
     const callback = vi.fn();
+
     await telegram.onQr(callback);
     await telegram.onAuthenticated(callback);
     await telegram.onPasswordRequired(callback);
     await telegram.onError(callback);
+
     expect(api.listen.mock.calls.map((call: unknown[]) => call[0])).toEqual([
       "telegram:qr-token",
       "telegram:auth-changed",
       "telegram:password-required",
       "telegram:auth-error",
     ]);
+
     expect(callback).toHaveBeenCalledTimes(4);
     expect(callback).toHaveBeenCalledWith({ value: "received" });
   });
@@ -156,12 +164,15 @@ describe("Telegram IPC adapter", () => {
     vi.stubEnv("VITE_E2E", "1");
     const testInvoke = vi.fn().mockResolvedValue({ authorized: false, displayName: null });
     const testListen = vi.fn().mockResolvedValue(() => {});
+
     Object.assign(window, {
       __TAURI__: { core: { invoke: testInvoke }, event: { listen: testListen } },
     });
+
     try {
       await telegram.status();
       await telegram.onError(() => {});
+
       expect(testInvoke).toHaveBeenCalledWith("session_status", undefined);
       expect(testListen).toHaveBeenCalledWith("telegram:auth-error", expect.any(Function));
       expect(api.invoke).not.toHaveBeenCalled();
@@ -173,6 +184,7 @@ describe("Telegram IPC adapter", () => {
 
   it("fails clearly if the E2E API is missing", async () => {
     vi.stubEnv("VITE_E2E", "1");
+
     try {
       await expect(telegram.status()).rejects.toThrow("Tauri test API is unavailable");
     } finally {
@@ -183,8 +195,32 @@ describe("Telegram IPC adapter", () => {
   it("passes promotion links to the native browser opener", async () => {
     api.invoke.mockResolvedValue(undefined);
     await telegram.openPromotionLink("https://shop.example/item");
+
     expect(api.invoke).toHaveBeenCalledWith("open_promotion_link", {
       url: "https://shop.example/item",
     });
   });
+});
+
+it("uses monitoring and installation startup commands with scoped status events", async () => {
+  await telegram.monitoringStatus();
+  await telegram.saveMonitoringSettings(false);
+  await telegram.startupSettings();
+  await telegram.saveStartupSettings(false);
+
+  expect(api.invoke.mock.calls).toEqual([
+    ["monitoring_status", undefined],
+    ["save_monitoring_settings", { enabled: false }],
+    ["startup_settings", undefined],
+    ["save_startup_settings", { enabled: false }],
+  ]);
+  const receive = vi.fn();
+
+  await telegram.onMonitoringStatus(receive);
+  await telegram.onSearchUpdated(receive);
+
+  expect(api.listen.mock.calls.map(([name]) => String(name))).toEqual([
+    "monitoring:status",
+    "search:updated",
+  ]);
 });

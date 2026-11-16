@@ -11,6 +11,9 @@ import type { Watch } from "../../watch.model";
 import { AddWatchPage } from "../AddWatchPage/AddWatchPage";
 
 const api = vi.hoisted(() => ({
+  monitoringStatus: vi.fn(),
+  onMonitoringStatus: vi.fn(),
+  onSearchUpdated: vi.fn(),
   listWatches: vi.fn(),
   deleteWatch: vi.fn(),
   loadSearchResults: vi.fn(),
@@ -30,6 +33,7 @@ const products: Watch[] = [
   },
   { id: 2, phrases: ["RTX 5070"], maxPriceCents: null, minPriceCents: null },
 ];
+
 beforeEach(() => {
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
@@ -46,6 +50,16 @@ beforeEach(() => {
     },
   });
   vi.resetAllMocks();
+  api.monitoringStatus.mockResolvedValue({
+    accountId: 77,
+    enabled: true,
+    isRunning: false,
+    lastAttempt: null,
+    nextDue: null,
+    failure: null,
+  });
+  api.onMonitoringStatus.mockResolvedValue(vi.fn());
+  api.onSearchUpdated.mockResolvedValue(vi.fn());
   api.listWatches.mockResolvedValue(products);
   api.deleteWatch.mockResolvedValue(undefined);
   api.loadSearchResults.mockResolvedValue({ matches: [], summary: null });
@@ -59,6 +73,7 @@ afterEach(() => {
 function SearchPage() {
   const search = useProductSearch();
   const watches = useWatchCache();
+
   return (
     <SearchContext.Provider value={search}>
       <WatchContext.Provider value={watches}>
@@ -83,6 +98,7 @@ function renderPage() {
 function CachedSession() {
   const search = useProductSearch();
   const watches = useWatchCache();
+
   return (
     <SearchContext.Provider value={search}>
       <WatchContext.Provider value={watches}>
@@ -104,6 +120,7 @@ it("shows a product saved after navigating away from a pending initial list", as
       }),
     )
     .mockResolvedValue([created, ...products]);
+
   api.createWatch.mockResolvedValue(created);
   render(
     <MemoryRouter initialEntries={["/connected"]}>
@@ -145,9 +162,11 @@ it("returns from Chats with cached products and results without a loading state"
   await waitFor(() => expect(screen.getByRole("status")).toBeEmptyDOMElement());
 
   fireEvent.click(screen.getByRole("link", { name: "Chats tab" }));
+
   expect(screen.getByRole("heading", { name: "Chats page" })).toBeInTheDocument();
 
   fireEvent.click(screen.getByRole("link", { name: "Products tab" }));
+
   expect(screen.getByRole("link", { name: "RTX 5070" })).toBeInTheDocument();
   expect(screen.queryByText(/Loading products|Loading saved matches/)).not.toBeInTheDocument();
   expect(api.listWatches).toHaveBeenCalledTimes(1);
@@ -156,6 +175,7 @@ it("returns from Chats with cached products and results without a loading state"
 
 it("opens deletion as a modal, cancels with Escape and blocks dismissal while deleting", async () => {
   let finish!: () => void;
+
   api.deleteWatch.mockReturnValue(
     new Promise<void>((resolve) => {
       finish = resolve;
@@ -164,22 +184,26 @@ it("opens deletion as a modal, cancels with Escape and blocks dismissal while de
   renderPage();
   fireEvent.click(await screen.findByRole("button", { name: "Delete RTX 5070" }));
   const dialog = screen.getByRole("dialog", { name: "Delete RTX 5070" });
+
   expect(dialog).toHaveAttribute("open");
   expect(screen.getByRole("button", { name: "Keep product" })).toHaveFocus();
 
   fireEvent(dialog, new Event("cancel", { cancelable: true }));
-  expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+
+  await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
   expect(api.deleteWatch).not.toHaveBeenCalled();
 
   fireEvent.click(screen.getByRole("button", { name: "Delete RTX 5070" }));
   fireEvent.click(screen.getByRole("button", { name: "Delete product" }));
   fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
+
   expect(screen.getByRole("dialog")).toHaveAttribute("aria-busy", "true");
 
   await act(async () => {
     finish();
     await Promise.resolve();
   });
+
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "RTX 5070" })).not.toBeInTheDocument();
 });
@@ -191,6 +215,7 @@ describe("Products", () => {
     expect(screen.getByText(/Loading products/)).toBeInTheDocument();
 
     const laptop = await screen.findByRole("link", { name: "Laptop Vivobook S14" });
+
     expect(laptop).toHaveAttribute("href", "/watches/1/edit");
     expect(laptop.closest(".connected-watch-details")).toHaveTextContent(
       /2 names · Up to R\$\s*3\.500,00/,
@@ -242,6 +267,7 @@ describe("Products", () => {
 
   it("deletes only the confirmed product and prevents duplicate requests", async () => {
     let finish!: () => void;
+
     api.deleteWatch.mockReturnValue(
       new Promise<void>((resolve) => {
         finish = resolve;
@@ -265,6 +291,7 @@ describe("Products", () => {
     expect(screen.getByText("Laptop Vivobook S14")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Delete Laptop Vivobook S14" }));
+
     api.deleteWatch.mockResolvedValue(undefined);
     fireEvent.click(screen.getByRole("button", { name: "Delete product" }));
 
@@ -283,6 +310,7 @@ describe("Products", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Delete product" }));
     await waitFor(() => expect(screen.queryByText("RTX 5070")).not.toBeInTheDocument());
+
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(api.deleteWatch).toHaveBeenCalledTimes(2);
   });
@@ -290,6 +318,7 @@ describe("Products", () => {
   it.each([true, false])("ignores a late list %s result", async (succeeds) => {
     let resolve!: (value: Watch[]) => void;
     let reject!: (reason: Error) => void;
+
     api.listWatches.mockReturnValue(
       new Promise<Watch[]>((res, rej) => {
         resolve = res;

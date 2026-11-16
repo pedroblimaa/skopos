@@ -98,16 +98,16 @@
 }
 .app-profile-menu {
   position: fixed;
+  isolation: isolate;
   inset: 66px 24px auto auto;
   margin: 0;
   width: 220px;
   padding: 6px;
-  border: 1px solid var(--color-border);
+  border: 1px solid var(--color-glass-border);
   border-radius: var(--radius-control);
-  background: var(--color-menu);
-  backdrop-filter: blur(20px);
+  background: var(--color-transparent);
   color: var(--color-text);
-  box-shadow: var(--shadow-floating);
+  box-shadow: var(--shadow-glass);
   opacity: 0;
   transform: translateY(-4px);
   pointer-events: none;
@@ -117,6 +117,36 @@
     display var(--motion-feedback) allow-discrete,
     overlay var(--motion-feedback) allow-discrete;
 }
+
+.app-profile-menu::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: var(--color-surface-raised);
+  pointer-events: none;
+}
+
+@supports (backdrop-filter: blur(1px)) {
+  .app-profile-menu::before {
+    background: var(--color-menu-glass);
+    backdrop-filter: blur(var(--blur-menu));
+  }
+}
+
+@media (prefers-reduced-transparency: reduce), (prefers-contrast: more), (forced-colors: active) {
+  .app-profile-menu {
+    border-color: var(--color-border);
+    box-shadow: var(--shadow-floating);
+  }
+
+  .app-profile-menu::before {
+    background: var(--color-surface-raised);
+    backdrop-filter: none;
+  }
+}
+
 .app-profile-menu:popover-open {
   opacity: 1;
   transform: translateY(0);

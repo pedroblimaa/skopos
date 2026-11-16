@@ -127,7 +127,7 @@ it("sends the local cutoff as epoch seconds and reports cleanup failures", async
   expect(screen.getByRole("alert")).toHaveTextContent("Could not load or save search results");
 });
 
-it("rejects an invalid cutoff and keeps a busy dialog open on Escape", () => {
+it("rejects an invalid cutoff and keeps a busy dialog open on Escape", async () => {
   const clear = vi.fn();
   const close = vi.fn();
   const { rerender } = render(
@@ -144,7 +144,9 @@ it("rejects an invalid cutoff and keeps a busy dialog open on Escape", () => {
 
   rerender(<ClearResultsDialog isBusy={false} error={null} onClear={clear} onClose={close} />);
   fireEvent(screen.getByRole("dialog"), new Event("cancel", { cancelable: true }));
-  expect(close).toHaveBeenCalledTimes(1);
+  await waitFor(() => {
+    expect(close).toHaveBeenCalledTimes(1);
+  });
 });
 
 it("shows actionable partial failures and a source-selection recovery link", () => {

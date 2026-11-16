@@ -15,6 +15,8 @@ pub(in crate::telegram) async fn test_context() -> (
     let context = crate::telegram::client::ClientContext {
         client: crate::telegram::api::TelegramApi {
             client: grammers_client::Client::new(pool.handle),
+            session: std::sync::Arc::new(crate::telegram::client::SessionCache::default()),
+            app: None,
             fixture: Some(std::sync::Arc::clone(&fixture)),
         },
         session,
