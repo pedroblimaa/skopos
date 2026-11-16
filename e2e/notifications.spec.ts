@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { $, $$, browser } from "@wdio/globals";
+import { $, browser } from "@wdio/globals";
 import { beforeEach, describe, it } from "mocha";
 import type { NotificationSettings, NotificationStatus } from "../src/notification.model";
 
@@ -163,11 +163,13 @@ describe("Saved Messages notifications", () => {
       assert.equal(await $("dialog").isDisplayed(), true);
       assert.equal(await browser.execute(() => document.querySelector("dialog")?.open), true);
       assert.equal(await $("dialog").getAttribute("data-closing"), "false");
-      const switches = await $$("dialog input[role='switch']");
+      const switches = browser.$$("dialog input[role='switch']");
 
-      assert.equal(switches.length, 2);
+      assert.equal(await switches.length, 2);
 
-      for (const toggle of switches) {
+      for (const index of [0, 1]) {
+        const toggle = switches[index];
+
         assert.equal(await toggle.isDisplayed(), true);
         assert.equal(await toggle.isEnabled(), true);
       }
